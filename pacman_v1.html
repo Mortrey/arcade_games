@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pacman</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+      color: #fff;
+      font-family: sans-serif;
+    }
+    #score {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 32px;
+      z-index: 2;
+    }
+    canvas {
+      background: #000;
+      image-rendering: pixelated;
+      /* Уменьшенный фиксированный размер */
+      width: 560px; 
+      height: 320px;
+      z-index: 1;
+    }
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      font-size: 64px;
+      text-align: center;
+      flex-direction: column;
+      z-index: 3;
+      visibility: hidden;
+    }
+    #overlay button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 24px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="score">Score: 0</div>
+  <canvas id="game"></canvas>
+  <div id="overlay">
+    <div id="game-over-text"></div>
+    <button id="restart-btn">Restart</button>
+  </div>
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreBoard = document.getElementById('score');
+    const overlay = document.getElementById('overlay');
+    const gameOverText = document.getElementById('game-over-text');
+    const restartBtn = document.getElementById('restart-btn');
+
+    // Уменьшенный размер тайлов
+    const tileSize = 20;
+    const speed = 10;
+    let frameCount = 0;
+    let gameOver = false;
+
+    const map = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1,1,0,1,1,0,1],
+      [1,2,1,1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1,1,0,1,1,2,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,0,1,1,0,1],
+      [1,0,0,0,0,1,0,0,0,0,0,2,2,2,2,0,0,0,0,1,0,0,0,0,0,0,0,1],
+      [1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,1],
+      [1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,1],
+      [1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1,1,0,1,1,0,1],
+      [1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+      [1,1,1,1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1],
+      [1,0,2,0,0,0,0,0,0,0,0,2,2,2,2,0,0,0,0,0,0,0,0,2,0,2,0,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    const rows = map.length;
+    const cols = map[0].length;
+    // Установка размеров canvas на основе карты и размера тайлов
+    canvas.width = cols * tileSize;
+    canvas.height = rows * tileSize;
+
+    let score = 0;
+    const pacman = { x: 1, y: 1, dir: { x: 1, y: 0 }, nextDir: { x: 0, y: 0 } };
+    const ghosts = [
+      { x: 13, y: 7, dir: { x: 1, y: 0 }, color: 'red' },
+      { x: 14, y: 7, dir: { x: -1, y: 0 }, color: 'pink' }
+    ];
+
+    document.addEventListener('keydown', e => {
+      switch (e.key) {
+        case 'ArrowUp': pacman.nextDir = { x: 0, y: -1 }; break;
+        case 'ArrowDown': pacman.nextDir = { x: 0, y: 1 }; break;
+        case 'ArrowLeft': pacman.nextDir = { x: -1, y: 0 }; break;
+        case 'ArrowRight': pacman.nextDir = { x: 1, y: 0 }; break;
+      }
+    });
+
+    function canMove(x, y) {
+      return map[y] && map[y][x] !== 1;
+    }
+
+    function checkWin() {
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (map[y][x] === 0 || map[y][x] === 2) return false;
+        }
+      }
+      return true;
+    }
+
+    function update() {
+      const prevPac = { x: pacman.x, y: pacman.y };
+      const prevGhosts = ghosts.map(g => ({ x: g.x, y: g.y }));
+
+      // Move Pacman
+      const nx = pacman.x + pacman.nextDir.x;
+      const ny = pacman.y + pacman.nextDir.y;
+      if (canMove(nx, ny)) pacman.dir = pacman.nextDir;
+      const px = pacman.x + pacman.dir.x;
+      const py = pacman.y + pacman.dir.y;
+      if (canMove(px, py)) { pacman.x = px; pacman.y = py; }
+
+      // Eat dot
+      if (map[pacman.y][pacman.x] === 0 || map[pacman.y][pacman.x] === 2) {
+        score += map[pacman.y][pacman.x] === 2 ? 10 : 1;
+        map[pacman.y][pacman.x] = -1;
+        scoreBoard.textContent = 'Score: ' + score;
+      }
+
+      // Check win condition
+      if (checkWin()) {
+        gameOver = true;
+        gameOverText.innerHTML = `You Win!<br>Score: ${score}`;
+        overlay.style.visibility = 'visible';
+        return;
+      }
+
+      // Move ghosts
+      ghosts.forEach((g, i) => {
+        const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+        const ok = canMove(g.x + g.dir.x, g.y + g.dir.y);
+        if (!ok || Math.random() < 0.1) {
+          const opts = dirs.filter(d => canMove(g.x + d.x, g.y + d.y));
+          if (opts.length) g.dir = opts[Math.floor(Math.random() * opts.length)];
+        }
+        g.x += g.dir.x;
+        g.y += g.dir.y;
+
+        const prevG = prevGhosts[i];
+        const collision =
+          (g.x === pacman.x && g.y === pacman.y) ||
+          (prevPac.x === g.x && prevPac.y === g.y && prevG.x === pacman.x && prevG.y === pacman.y);
+        if (collision) {
+          gameOver = true;
+          gameOverText.innerHTML = `Game Over<br>Score: ${score}`;
+          overlay.style.visibility = 'visible';
+        }
+      });
+    }
+
+    restartBtn.addEventListener('click', () => location.reload());
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Draw map
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const v = map[y][x];
+          if (v === 1) {
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(x*tileSize, y*tileSize, tileSize, tileSize);
+          } else if (v === 0 || v === 2) {
+            ctx.fillStyle = v === 2 ? 'orange' : 'white';
+            ctx.beginPath();
+            const radius = v === 2 ? tileSize/4 : tileSize/8;
+            ctx.arc(x*tileSize + tileSize/2, y*tileSize + tileSize/2, radius, 0, 2*Math.PI);
+            ctx.fill();
+          }
+        }
+      }
+
+      // Draw Pacman
+      const cx = pacman.x*tileSize + tileSize/2;
+      const cy = pacman.y*tileSize + tileSize/2;
+      const dir = pacman.dir;
+      let angle = Math.atan2(dir.y, dir.x);
+      const m = 0.25*Math.PI;
+      ctx.fillStyle = 'yellow';
+      ctx.beginPath();
+      ctx.arc(cx, cy, tileSize/2 - 2, angle + m, angle - m, false);
+      ctx.lineTo(cx, cy);
+      ctx.fill();
+
+      // Draw ghosts
+      ghosts.forEach(g => {
+        ctx.fillStyle = g.color;
+        ctx.beginPath();
+        ctx.arc(g.x*tileSize + tileSize/2, g.y*tileSize + tileSize/2, tileSize/2 - 2, 0, 2*Math.PI);
+        ctx.fill();
+      });
+    }
+
+    function loop() {
+      frameCount++;
+      if (frameCount % speed === 0 && !gameOver) update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
