@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Эмодзи-битва: Расширенная версия</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+            overflow-x: hidden;
+        }
+
+        #game-container {
+            display: flex;
+            position: relative;
+            min-height: calc(100vh - 40px);
+            padding-left: 340px; /* Отступ для панели */
+            justify-content: center;
+            align-items: center; /* Центрируем по вертикали */
+            padding-top: 0; /* Убираем верхний отступ для лучшего центрирования */
+        }
+
+        #battlefield {
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            table-layout: fixed;
+            margin: 0 auto; /* Центрируем таблицу */
+            transform: translateX(100px); /* Смещаем поле вправо */
+        }
+        
+        .cell {
+            width: 80px; /* Увеличиваем размер ячеек */
+            height: 80px;
+            border: 1px solid #ccc;
+            text-align: center;
+            font-size: 40px; /* Увеличиваем размер эмодзи */
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.3s;
+            box-sizing: border-box;
+        }
+        
+        .cell:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .selected {
+            background-color: #ffeb3b;
+        }
+        
+        .info-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 320px; /* Немного увеличиваем ширину панели */
+            position: fixed;
+            left: 20px;
+            top: 20px;
+            bottom: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            z-index: 100; /* Убеждаемся, что панель всегда поверх */
+        }
+        
+        .unit-info {
+            background: white;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            min-height: 300px; /* Фиксированная минимальная высота */
+        }
+
+        .unit-info:empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+
+        .unit-info:empty::after {
+            content: "Выберите юнита";
+            font-style: italic;
+        }
+
+        #action-log {
+            flex: 1;
+            min-height: 200px;
+            max-height: none;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: auto; /* Прижимаем лог к низу */
+            background: #f9f9f9;
+        }
+
+        .level-select {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(calc(-50% + 160px), -50%); /* Сдвигаем вправо на половину ширины боковой панели */
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-height: 90vh;
+            overflow-y: auto;
+            width: 60%; /* Уменьшаем ширину */
+            max-width: 800px;
+            min-width: 400px;
+        }
+
+        .level-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .level-buttons button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .level-buttons button:hover {
+            background: #45a049;
+        }
+
+        .level-select h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        /* Затемнение фона при открытии модального окна */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        /* Показываем оверлей когда модальное окно открыто */
+        .level-select:not([style*="display: none"]) ~ .modal-overlay {
+            display: block;
+        }
+
+        .unit-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding: 10px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        /* Стили для скроллбара */
+        .unit-selection::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .unit-selection::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .unit-selection::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .unit-selection::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .unit-card {
+            padding: 15px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            background: white;
+            border: 1px solid #ddd;
+            height: fit-content;
+        }
+
+        /* Добавляем отступ для кнопки "Начать битву" */
+        #unit-select button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1.1em;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        #unit-select button:hover {
+            background: #45a049;
+        }
+
+        /* Фиксированный заголовок */
+        .selection-header {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 10px 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+            z-index: 1;
+        }
+
+        .unit-card:hover {
+            background: #f5f5f5;
+            transform: translateY(-2px);
+        }
+
+        .unit-card.selected {
+            border-color: #4CAF50;
+            background: #E8F5E9;
+        }
+
+        .level-info {
+            background: #E3F2FD;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        @keyframes attack-animation {
+            0% { transform: scale(1) translate(0, 0); }
+            50% { transform: scale(1.2) translate(10px, -5px); }
+            100% { transform: scale(1) translate(0, 0); }
+        }
+
+        @keyframes explosion {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+                background: radial-gradient(circle, #ff4444 0%, transparent 70%);
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+                background: radial-gradient(circle, #ff4444 0%, transparent 70%);
+            }
+        }
+
+        .attack-effect {
+            animation: attack-animation 0.3s ease-in-out;
+        }
+
+        .explosion-effect {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            animation: explosion 0.5s ease-out forwards;
+            pointer-events: none;
+        }
+
+        .attack-line {
+            position: fixed;
+            height: 2px;
+            background: linear-gradient(90deg, #ff4444, #ff8888);
+            transform-origin: left;
+            z-index: 999;
+            animation: fadeIn 0.2s ease-in, fadeOut 0.2s ease-out 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        .terrain {
+            background-color: #90EE90;
+        }
+
+        .water {
+            background-color: #4169E1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .water::after {
+            content: '💧';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            opacity: 0.8;
+        }
+
+        .mountain {
+            background-color: #8B4513;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mountain::after {
+            content: '⛰️';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            opacity: 0.8;
+        }
+
+        .tree {
+            background-color: #228B22;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tree::after {
+            content: '🌳';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            opacity: 0.8;
+        }
+
+        .available-move {
+            position: relative;
+        }
+
+        .available-move::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(144, 238, 144, 0.3);
+            pointer-events: none;
+        }
+
+        .available-attack {
+            position: relative;
+        }
+
+        .available-attack::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 99, 71, 0.3);
+            pointer-events: none;
+        }
+
+        .available-special {
+            position: relative;
+        }
+
+        .available-special::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(147, 112, 219, 0.3);
+            pointer-events: none;
+        }
+
+        .unit-card.unavailable {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .action-button {
+            padding: 8px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            transition: background-color 0.3s;
+            text-align: center;
+        }
+
+        .action-button:hover {
+            background: #f5f5f5;
+        }
+
+        .action-button.active {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #45a049;
+        }
+
+        .skip-turn-button {
+            grid-column: 1 / -1;
+            background: #666;
+            color: white;
+            border: none;
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .skip-turn-button:hover {
+            background: #555;
+        }
+
+        .ability-info {
+            margin-top: 10px;
+            padding: 5px;
+            border-radius: 4px;
+            background-color: rgba(0,0,0,0.05);
+        }
+        .ability-name {
+            font-weight: bold;
+            color: #4a4a4a;
+        }
+        .ability-description {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .cooldown-info {
+            font-size: 0.8em;
+            color: #888;
+        }
+        .unit-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+            margin: 10px 0;
+        }
+        .unit-ability {
+            margin-top: 8px;
+            padding: 5px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div class="info-panel">
+            <div class="level-info">
+                <h2>Уровень <span id="current-level">1</span></h2>
+                <p>Осталось врагов: <span id="enemies-left">0</span></p>
+                <p>Текущий ход: <span id="current-turn">-</span></p>
+            </div>
+            <div class="unit-info" id="unit-info"></div>
+            <div id="action-log"></div>
+        </div>
+        <table id="battlefield"></table>
+    </div>
+
+    <div id="level-select" class="level-select">
+        <h2>Выберите уровень</h2>
+        <div class="level-buttons">
+            <button onclick="selectLevel(1)">Уровень 1: Лес</button>
+            <button onclick="selectLevel(2)">Уровень 2: Горы</button>
+            <button onclick="selectLevel(3)">Уровень 3: Замок</button>
+        </div>
+    </div>
+
+    <div id="unit-select" class="level-select">
+        <div class="selection-header">
+            <h2>Выберите отряд</h2>
+            <p>Выберите 3 юнита для битвы</p>
+        </div>
+        <div class="unit-selection" id="unit-selection"></div>
+        <button onclick="startBattle()">Начать битву</button>
+    </div>
+
+    <div class="modal-overlay"></div>
+
+    <script>
+        const AVAILABLE_UNITS = {
+            player: [
+                {
+                    type: '🦁', 
+                    name: 'Лев', 
+                    hp: 120, 
+                    attack: 18, 
+                    initiative: 8,
+                    range: 1,
+                    activeAbility: {
+                        name: 'Рев',
+                        description: 'Оглушает всех врагов в радиусе 2 клеток, снижая их инициативу на 2 хода',
+                        range: 2,
+                        cooldown: 3
+                    },
+                    passiveAbility: {
+                        name: 'Король зверей',
+                        description: 'Увеличивает атаку на 5 за каждого союзника рядом'
+                    }
+                },
+                {
+                    type: '🛡️', 
+                    name: 'Рыцарь', 
+                    hp: 150, 
+                    attack: 15, 
+                    initiative: 5,
+                    range: 1,
+                    activeAbility: {
+                        name: 'Щитовая стена',
+                        description: 'Защищает союзника, принимая весь урон на себя в течение 2 ходов',
+                        range: 2,
+                        cooldown: 4
+                    },
+                    passiveAbility: {
+                        name: 'Стальная воля',
+                        description: 'Получает +5 к защите за каждые потерянные 20% HP'
+                    }
+                },
+                {
+                    type: '🧙', 
+                    name: 'Маг', 
+                    hp: 80, 
+                    attack: 25, 
+                    initiative: 7,
+                    range: 1,
+                    activeAbility: {
+                        name: 'Огненный шар',
+                        description: 'Наносит 150% урона основной цели и 50% урона всем в радиусе 1 клетки',
+                        range: 3,
+                        cooldown: 2
+                    },
+                    passiveAbility: {
+                        name: 'Мудрость веков',
+                        description: 'Каждый ход восстанавливает 5 HP и уменьшает перезарядку способностей союзников на 1'
+                    }
+                },
+                {
+                    type: '🏹', 
+                    name: 'Лучник', 
+                    hp: 90, 
+                    attack: 20, 
+                    initiative: 9,
+                    range: 2,
+                    activeAbility: {
+                        name: 'Залп',
+                        description: 'Выпускает стрелы по трем целям в пределах дальности',
+                        range: 2,
+                        cooldown: 3
+                    },
+                    passiveAbility: {
+                        name: 'Меткий глаз',
+                        description: 'Может атаковать через препятствия и союзников, включая диагональные атаки'
+                    }
+                },
+                {
+                    type: '⚔️', 
+                    name: 'Берсерк', 
+                    hp: 100, 
+                    attack: 30, 
+                    initiative: 6,
+                    range: 1,
+                    activeAbility: {
+                        name: 'Ярость',
+                        description: 'Удваивает атаку на 2 хода, но получает на 50% больше урона',
+                        range: 0,
+                        cooldown: 4
+                    },
+                    passiveAbility: {
+                        name: 'Жажда крови',
+                        description: 'Получает +5 к атаке за каждые потерянные 10% HP'
+                    }
+                },
+                {
+                    type: '💉', 
+                    name: 'Лекарь', 
+                    hp: 70, 
+                    attack: 10, 
+                    initiative: 4,
+                    range: 1,
+                    activeAbility: {
+                        name: 'Исцеление',
+                        description: 'Восстанавливает 30 HP цели и снимает все негативные эффекты',
+                        range: 2,
+                        cooldown: 2
+                    },
+                    passiveAbility: {
+                        name: 'Аура жизни',
+                        description: 'Все союзники в радиусе 2 клеток восстанавливают 5 HP в начале хода'
+                    }
+                },
+                {
+                    type: '🦅', 
+                    name: 'Грифон', 
+                    hp: 110, 
+                    attack: 22, 
+                    initiative: 10,
+                    range: 1,
+                    activeAbility: {
+                        name: 'Воздушный удар',
+                        description: 'Перелетает через врага, оглушая его, и атакует с удвоенной силой',
+                        range: 3,
+                        cooldown: 3
+                    },
+                    passiveAbility: {
+                        name: 'Полёт',
+                        description: 'Может перемещаться на 2 клетки, включая диагональное движение'
+                    }
+                },
+                {
+                    type: '🐉', 
+                    name: 'Дракончик', 
+                    hp: 130, 
+                    attack: 28, 
+                    initiative: 7,
+                    range: 1,
+                    activeAbility: {
+                        name: 'Огненное дыхание',
+                        description: 'Наносит урон всем врагам в линии длиной 3 клетки',
+                        range: 3,
+                        cooldown: 3
+                    },
+                    passiveAbility: {
+                        name: 'Драконья чешуя',
+                        description: 'Получает только 75% урона от физических атак'
+                    }
+                },
+                {
+                    type: '🧝', 
+                    name: 'Следопыт', 
+                    hp: 95, 
+                    attack: 23, 
+                    initiative: 8,
+                    range: 2,
+                    activeAbility: {
+                        name: 'Ловушка',
+                        description: 'Устанавливает ловушку, которая обездвиживает врага на 2 хода',
+                        range: 3,
+                        cooldown: 4
+                    },
+                    passiveAbility: {
+                        name: 'Знание местности',
+                        description: 'Игнорирует штрафы от местности и получает +2 к атаке в лесу'
+                    }
+                },
+                {
+                    type: '⚡', 
+                    name: 'Шаман', 
+                    hp: 85, 
+                    attack: 20, 
+                    initiative: 6,
+                    range: 1,
+                    activeAbility: {
+                        name: 'Цепная молния',
+                        description: 'Наносит урон цели и перескакивает на 2 ближайших врагов',
+                        range: 2,
+                        cooldown: 3
+                    },
+                    passiveAbility: {
+                        name: 'Духовная связь',
+                        description: 'При получении урона восстанавливает HP случайному союзнику'
+                    }
+                },
+                {
+                    type: '🗡️', 
+                    name: 'Ассасин', 
+                    hp: 75, 
+                    attack: 35, 
+                    initiative: 9,
+                    range: 1,
+                    activeAbility: {
+                        name: 'Теневой прыжок',
+                        description: 'Телепортируется за спину врага и наносит критический удар',
+                        range: 3,
+                        cooldown: 4
+                    },
+                    passiveAbility: {
+                        name: 'Скрытность',
+                        description: 'После убийства становится невидимым на 1 ход'
+                    }
+                },
+                {
+                    type: '🎭', 
+                    name: 'Менестрель', 
+                    hp: 70, 
+                    attack: 15, 
+                    initiative: 5,
+                    range: 2,
+                    activeAbility: {
+                        name: 'Воодушевляющая песня',
+                        description: 'Увеличивает атаку и инициативу всех союзников в радиусе 2 клеток',
+                        range: 2,
+                        cooldown: 3
+                    },
+                    passiveAbility: {
+                        name: 'Вдохновение',
+                        description: 'Союзники рядом получают +2 к атаке и инициативе'
+                    }
+                }
+            ]
+        };
+
+        const LEVELS = {
+            1: {
+                name: 'Лес',
+                size: 8,
+                enemies: [
+                    {type: '🐺', name: 'Волк', hp: 80, attack: 15, initiative: 7},
+                    {type: '🐗', name: 'Кабан', hp: 100, attack: 12, initiative: 5},
+                    {type: '🦊', name: 'Лиса', hp: 60, attack: 18, initiative: 9}
+                ],
+                terrain: [
+                    {type: 'tree', x: 3, y: 3},
+                    {type: 'tree', x: 4, y: 4},
+                    {type: 'tree', x: 2, y: 5}
+                ]
+            },
+            2: {
+                name: 'Горы',
+                size: 10,
+                enemies: [
+                    {type: '🧟', name: 'Зомби', hp: 120, attack: 15, initiative: 4},
+                    {type: '👻', name: 'Призрак', hp: 90, attack: 20, initiative: 8},
+                    {type: '💀', name: 'Скелет', hp: 100, attack: 18, initiative: 6}
+                ],
+                terrain: [
+                    {type: 'mountain', x: 4, y: 4},
+                    {type: 'mountain', x: 5, y: 5},
+                    {type: 'mountain', x: 3, y: 6},
+                    {type: 'tree', x: 1, y: 3},
+                    {type: 'tree', x: 6, y: 2},
+                    {type: 'tree', x: 8, y: 4}
+                ]
+            },
+            3: {
+                name: 'Замок',
+                size: 12,
+                enemies: [
+                    {type: '👹', name: 'Демон', hp: 150, attack: 25, initiative: 7},
+                    {type: '🧛', name: 'Вампир', hp: 130, attack: 22, initiative: 9},
+                    {type: '👿', name: 'Тёмный маг', hp: 140, attack: 28, initiative: 8}
+                ],
+                terrain: [
+                    {type: 'water', x: 5, y: 5},
+                    {type: 'water', x: 6, y: 6},
+                    {type: 'mountain', x: 4, y: 7}
+                ]
+            }
+        };
+
+        let currentLevel = 1;
+        let selectedUnits = [];
+        let units = {
+            player: [],
+            enemy: []
+        };
+        let selectedUnit = null;
+        let turnQueue = [];
+        let currentUnitIndex = 0;
+        let currentAction = 'move'; // 'move', 'attack', 'special'
+        let usedUnits = new Set(); // Хранит использованных юнитов
+
+        function initGame() {
+            document.getElementById('level-select').style.display = 'block';
+        }
+
+        function selectLevel(level) {
+            currentLevel = level;
+            usedUnits.clear(); // Очищаем список использованных юнитов
+            document.getElementById('level-select').style.display = 'none';
+            showUnitSelection();
+        }
+
+        function showUnitSelection() {
+            const container = document.getElementById('unit-selection');
+            const unitSelect = document.getElementById('unit-select');
+            
+            // Обновляем структуру HTML для окна выбора
+            unitSelect.innerHTML = `
+                <div class="selection-header">
+                    <h2>Выберите отряд</h2>
+                    <p>Выберите 3 юнита для битвы</p>
+                </div>
+                <div class="unit-selection" id="unit-selection"></div>
+                <button onclick="startBattle()">Начать битву</button>
+            `;
+
+            const selectionContainer = document.getElementById('unit-selection');
+            selectionContainer.innerHTML = '';
+            
+            AVAILABLE_UNITS.player.forEach((unit, index) => {
+                const card = document.createElement('div');
+                card.className = 'unit-card';
+                if (usedUnits.has(unit.type)) {
+                    card.classList.add('unavailable');
+                }
+                card.innerHTML = `
+                    <div style="font-size: 2em">${unit.type}</div>
+                    <div style="font-weight: bold">${unit.name}</div>
+                    <div class="unit-stats">
+                        <div>❤️ HP: ${unit.hp}</div>
+                        <div>⚔️ Атака: ${unit.attack}</div>
+                        <div>🏃 Инициатива: ${unit.initiative}</div>
+                        <div>📏 Дальность: ${unit.range}</div>
+                    </div>
+                    <div class="unit-ability">
+                        <div class="ability-name">✨ ${unit.activeAbility.name}</div>
+                        <div class="ability-description">${unit.activeAbility.description}</div>
+                        <div class="cooldown-info">⏱️ Перезарядка: ${unit.activeAbility.cooldown} хода</div>
+                    </div>
+                    <div class="unit-ability">
+                        <div class="ability-name">🔮 ${unit.passiveAbility.name}</div>
+                        <div class="ability-description">${unit.passiveAbility.description}</div>
+                    </div>
+                `;
+                if (!usedUnits.has(unit.type)) {
+                    card.onclick = () => toggleUnitSelection(index);
+                }
+                selectionContainer.appendChild(card);
+            });
+            
+            unitSelect.style.display = 'block';
+        }
+
+        function toggleUnitSelection(index) {
+            const unit = AVAILABLE_UNITS.player[index];
+            const card = document.querySelectorAll('.unit-card')[index];
+            
+            if (selectedUnits.includes(unit)) {
+                selectedUnits = selectedUnits.filter(u => u !== unit);
+                card.classList.remove('selected');
+                usedUnits.delete(unit.type);
+            } else if (selectedUnits.length < 3) {
+                selectedUnits.push(unit);
+                card.classList.add('selected');
+                usedUnits.add(unit.type);
+            }
+        }
+
+        function startBattle() {
+            if (selectedUnits.length !== 3) {
+                alert('Выберите ровно 3 юнита!');
+                return;
+            }
+
+            document.getElementById('unit-select').style.display = 'none';
+            
+            // Размещаем юнитов игрока в начальные позиции
+            units.player = selectedUnits.map((unit, index) => ({
+                ...unit,
+                x: 0,  // Начальная позиция по X
+                y: index + 1,  // Начальная позиция по Y
+                cooldowns: {
+                    special: 0
+                }
+            }));
+
+            const level = LEVELS[currentLevel];
+            // Размещаем врагов в конце поля
+            units.enemy = level.enemies.map((enemy, index) => ({
+                ...enemy,
+                x: level.size - 1,  // Правый край поля
+                y: index + 1,  // Распределяем по Y
+                range: enemy.range || 1  // Добавляем дальность атаки, если не указана
+            }));
+
+            createBattlefield(level.size);
+            document.getElementById('current-level').textContent = currentLevel;
+            document.getElementById('enemies-left').textContent = units.enemy.length;
+            
+            // Начинаем первый раунд
+            startNewRound();
+        }
+
+        function createBattlefield(size) {
+            const table = document.getElementById('battlefield');
+            table.innerHTML = '';
+            
+            for(let y = 0; y < size; y++) {
+                const row = table.insertRow();
+                for(let x = 0; x < size; x++) {
+                    const cell = row.insertCell();
+                    cell.className = 'cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    cell.addEventListener('click', handleCellClick);
+                }
+            }
+
+            // Добавляем terrain
+            LEVELS[currentLevel].terrain.forEach(t => {
+                const cell = document.querySelector(`[data-x="${t.x}"][data-y="${t.y}"]`);
+                if (cell) {
+                    cell.classList.add(t.type);
+                }
+            });
+
+            updateBattlefield();
+        }
+
+        function startNewRound() {
+            // Создаем очередь ходов на основе инициативы
+            turnQueue = [...units.player, ...units.enemy]
+                .sort((a, b) => b.initiative - a.initiative);
+            
+            currentUnitIndex = 0;
+            selectedUnit = null;
+            
+            // Запускаем первый ход
+            processNextTurn();
+        }
+
+        function processNextTurn() {
+            if(currentUnitIndex >= turnQueue.length) {
+                startNewRound();
+                return;
+            }
+
+            const currentUnit = turnQueue[currentUnitIndex];
+            const isPlayerUnit = units.player.includes(currentUnit);
+            
+            document.getElementById('current-turn').textContent = 
+                `${currentUnit.type} ${currentUnit.name} (${isPlayerUnit ? 'Игрок' : 'Противник'})`;
+
+            if(!isPlayerUnit) {
+                setTimeout(() => enemyTurn(currentUnit), 500);
+            } else {
+                // Подсвечиваем доступные ходы для текущего юнита
+                highlightAvailableCells(currentUnit);
+            }
+        }
+
+        function highlightAvailableCells(unit) {
+            const cells = document.getElementsByClassName('cell');
+            for(let cell of cells) {
+                cell.classList.remove('available-move', 'available-attack', 'available-special');
+            }
+
+            const level = LEVELS[currentLevel];
+            for(let y = 0; y < level.size; y++) {
+                for(let x = 0; x < level.size; x++) {
+                    const distance = Math.abs(unit.x - x) + Math.abs(unit.y - y);
+                    const diagonalDistance = Math.max(Math.abs(unit.x - x), Math.abs(unit.y - y));
+                    const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+                    
+                    if (!cell) continue;
+
+                    // Движение (включая диагональное)
+                    if (currentAction === 'move') {
+                        if (diagonalDistance <= 1 && isValidCell({x, y})) {
+                            cell.classList.add('available-move');
+                        }
+                    }
+                    // Атака
+                    else if (currentAction === 'attack') {
+                        if (unit.type === '🏹') { // Лучник может стрелять по диагонали и через препятствия
+                            if (diagonalDistance <= unit.range) {
+                                const targetEnemy = units.enemy.find(e => e.x === x && e.y === y);
+                                if (targetEnemy) {
+                                    cell.classList.add('available-attack');
+                                }
+                            }
+                        } else if (distance <= unit.range) {
+                            const targetEnemy = units.enemy.find(e => e.x === x && e.y === y);
+                            if (targetEnemy) {
+                                cell.classList.add('available-attack');
+                            }
+                        }
+                    }
+                    // Специальные способности
+                    else if (currentAction === 'special') {
+                        const ability = unit.activeAbility;
+                        if (distance <= ability.range) {
+                            switch(unit.type) {
+                                case '🧙': // Маг - Огненный шар
+                                case '🐉': // Дракончик - Огненное дыхание
+                                case '⚡': // Шаман - Цепная молния
+                                    const targetEnemy = units.enemy.find(e => e.x === x && e.y === y);
+                                    if (targetEnemy) {
+                                        cell.classList.add('available-special');
+                                    }
+                                    break;
+                                case '💉': // Лекарь - Исцеление
+                                    const targetAlly = units.player.find(p => p.x === x && p.y === y && p !== unit);
+                                    if (targetAlly) {
+                                        cell.classList.add('available-special');
+                                    }
+                                    break;
+                                case '🦁': // Лев - Рев
+                                    if (distance <= ability.range) {
+                                        cell.classList.add('available-special');
+                                    }
+                                    break;
+                                // Добавьте другие специальные случаи здесь
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function handleCellClick(e) {
+            const x = parseInt(e.target.dataset.x);
+            const y = parseInt(e.target.dataset.y);
+            
+            const currentUnit = turnQueue[currentUnitIndex];
+            if(!units.player.includes(currentUnit)) return;
+
+            // Если кликнули по текущему юниту
+            const unit = units.player.find(u => u.x === x && u.y === y);
+            if(unit && unit === currentUnit) {
+                selectedUnit = unit;
+                updateBattlefield();
+                showUnitInfo(unit);
+                return;
+            }
+
+            // Если юнит уже выбран
+            if(selectedUnit === currentUnit) {
+                if (currentAction === 'move' && e.target.classList.contains('available-move')) {
+                    // Проверяем, не занята ли клетка препятствием
+                    const terrain = LEVELS[currentLevel].terrain.find(t => t.x === x && t.y === y);
+                    if (!terrain) {
+                        moveUnit(selectedUnit, x, y);
+                        selectedUnit = null;
+                        endTurn();
+                    }
+                }
+                else if (currentAction === 'attack' && e.target.classList.contains('available-attack')) {
+                    const enemy = units.enemy.find(u => u.x === x && u.y === y);
+                    if (enemy) {
+                        attack(selectedUnit, enemy);
+                        selectedUnit = null;
+                        endTurn();
+                    }
+                }
+                else if (currentAction === 'special' && e.target.classList.contains('available-special')) {
+                    useSpecialAbility(selectedUnit, x, y);
+                    selectedUnit = null;
+                    endTurn();
+                }
+            } else {
+                // Если нет выбранного юнита, показываем информацию о вражеском юните
+                const enemyUnit = units.enemy.find(u => u.x === x && u.y === y);
+                if (enemyUnit) {
+                    showUnitInfo(enemyUnit, true);
+                }
+            }
+        }
+
+        function endTurn() {
+            // Уменьшаем перезарядку способностей
+            turnQueue.forEach(unit => {
+                if (unit.cooldowns && unit.cooldowns.special > 0) {
+                    unit.cooldowns.special--;
+                }
+            });
+
+            currentUnitIndex++;
+            selectedUnit = null;
+            document.getElementById('unit-info').innerHTML = '';
+            processNextTurn();
+        }
+
+        function isEmptyCell(x, y) {
+            return ![...units.player, ...units.enemy].some(u => u.x === x && u.y === y);
+        }
+
+        function isAdjacent(a, b) {
+            return Math.abs(a.x - b.x) <= 1 && Math.abs(a.y - b.y) <= 1;
+        }
+
+        function moveUnit(unit, newX, newY) {
+            // Создаем копию для анимации
+            const cell = document.querySelector(`[data-x="${unit.x}"][data-y="${unit.y}"]`);
+            const targetCell = document.querySelector(`[data-x="${newX}"][data-y="${newY}"]`);
+            
+            if(cell && targetCell) {
+                const unitElement = document.createElement('div');
+                unitElement.textContent = unit.type;
+                unitElement.style.position = 'fixed';
+                unitElement.style.fontSize = '35px';
+                unitElement.style.pointerEvents = 'none';
+                unitElement.style.zIndex = '1000';
+                
+                const startRect = cell.getBoundingClientRect();
+                const endRect = targetCell.getBoundingClientRect();
+                
+                unitElement.style.left = startRect.left + 'px';
+                unitElement.style.top = startRect.top + 'px';
+                
+                document.body.appendChild(unitElement);
+                
+                // Анимация перемещения
+                unitElement.style.transition = 'all 0.3s ease-in-out';
+                requestAnimationFrame(() => {
+                    unitElement.style.left = endRect.left + 'px';
+                    unitElement.style.top = endRect.top + 'px';
+                });
+                
+                // После завершения анимации
+                setTimeout(() => {
+                    unit.x = newX;
+                    unit.y = newY;
+                    document.body.removeChild(unitElement);
+                    logAction(`🏃 ${unit.type} ${unit.name} перемещается на (${newX}, ${newY})`);
+                    updateBattlefield();
+                }, 300);
+            } else {
+                // Если что-то пошло не так, просто перемещаем без анимации
+                unit.x = newX;
+                unit.y = newY;
+                logAction(`🏃 ${unit.type} ${unit.name} перемещается на (${newX}, ${newY})`);
+                updateBattlefield();
+            }
+        }
+
+        function attack(attacker, defender, damage = attacker.attack) {
+            const attackerCell = document.querySelector(`[data-x="${attacker.x}"][data-y="${attacker.y}"]`);
+            const defenderCell = document.querySelector(`[data-x="${defender.x}"][data-y="${defender.y}"]`);
+            
+            if(attackerCell && defenderCell) {
+                // Анимация атаки
+                attackerCell.classList.add('attack-effect');
+                
+                const isRangedAttack = Math.abs(attacker.x - defender.x) + Math.abs(attacker.y - defender.y) > 1;
+                
+                if (isRangedAttack) {
+                    // Создаем элемент для анимации дальней атаки (линия)
+                    const attackLine = document.createElement('div');
+                    attackLine.className = 'attack-line';
+                    
+                    const startRect = attackerCell.getBoundingClientRect();
+                    const endRect = defenderCell.getBoundingClientRect();
+                    
+                    const angle = Math.atan2(endRect.top - startRect.top, endRect.left - startRect.left);
+                    const distance = Math.sqrt(
+                        Math.pow(endRect.left - startRect.left, 2) + 
+                        Math.pow(endRect.top - startRect.top, 2)
+                    );
+                    
+                    attackLine.style.left = (startRect.left + startRect.width/2) + 'px';
+                    attackLine.style.top = (startRect.top + startRect.height/2) + 'px';
+                    attackLine.style.width = distance + 'px';
+                    attackLine.style.transform = `rotate(${angle}rad)`;
+                    
+                    document.body.appendChild(attackLine);
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(attackLine);
+                    }, 500);
+                } else {
+                    // Создаем элемент для анимации ближней атаки (взрыв)
+                    const explosion = document.createElement('div');
+                    explosion.className = 'explosion-effect';
+                    defenderCell.appendChild(explosion);
+                    
+                    setTimeout(() => {
+                        defenderCell.removeChild(explosion);
+                    }, 500);
+                }
+                
+                setTimeout(() => {
+                    attackerCell.classList.remove('attack-effect');
+                    
+                    // Применяем урон
+                    defender.hp -= damage;
+                    logAction(`⚔️ ${attacker.type} ${attacker.name} атакует ${defender.type} ${defender.name} (${Math.round(defender.hp + damage)} → ${Math.round(defender.hp)})`);
+                    
+                    if(defender.hp <= 0) {
+                        const faction = units.player.includes(defender) ? 'player' : 'enemy';
+                        units[faction] = units[faction].filter(u => u !== defender);
+                        logAction(`💀 ${defender.type} ${defender.name} уничтожен!`);
+                        checkVictory();
+                    }
+                    updateBattlefield();
+                }, 300);
+            }
+        }
+
+        function enemyTurn(currentUnit) {
+            const targets = [...units.player];
+            if(targets.length === 0) return;
+
+            let nearestTarget = targets.reduce((prev, curr) => 
+                distance(currentUnit, curr) < distance(currentUnit, prev) ? curr : prev
+            , targets[0]);
+
+            if(isAdjacent(currentUnit, nearestTarget)) {
+                attack(currentUnit, nearestTarget);
+                endTurn();
+                return;
+            }
+
+            const dx = nearestTarget.x - currentUnit.x;
+            const dy = nearestTarget.y - currentUnit.y;
+            
+            let moveX = currentUnit.x;
+            let moveY = currentUnit.y;
+            
+            if(isValidCell({x: currentUnit.x + Math.sign(dx), y: currentUnit.y + Math.sign(dy)})) {
+                moveX += Math.sign(dx);
+                moveY += Math.sign(dy);
+            } 
+            else if(Math.abs(dx) > Math.abs(dy)) {
+                moveX += Math.sign(dx);
+            } else {
+                moveY += Math.sign(dy);
+            }
+
+            if(!isValidCell({x: moveX, y: moveY})) {
+                const possibleMoves = [
+                    {x: currentUnit.x + 1, y: currentUnit.y},
+                    {x: currentUnit.x - 1, y: currentUnit.y},
+                    {x: currentUnit.x, y: currentUnit.y + 1},
+                    {x: currentUnit.x, y: currentUnit.y - 1}
+                ];
+                
+                for(let move of possibleMoves) {
+                    if(isValidCell(move)) {
+                        moveX = move.x;
+                        moveY = move.y;
+                        break;
+                    }
+                }
+            }
+            
+            if(moveX !== currentUnit.x || moveY !== currentUnit.y) {
+                moveUnit(currentUnit, moveX, moveY);
+            }
+            
+            endTurn();
+        }
+
+        function distance(unit1, unit2) {
+            return Math.abs(unit1.x - unit2.x) + Math.abs(unit1.y - unit2.y);
+        }
+
+        function isValidCell(pos) {
+            const level = LEVELS[currentLevel];
+            // Проверяем границы поля
+            if (pos.x < 0 || pos.x >= level.size || pos.y < 0 || pos.y >= level.size) {
+                return false;
+            }
+            // Проверяем, не занята ли клетка другим юнитом
+            if (!isEmptyCell(pos.x, pos.y)) {
+                return false;
+            }
+            // Проверяем, нет ли в клетке препятствия
+            const terrain = level.terrain.find(t => t.x === pos.x && t.y === pos.y);
+            if (terrain && terrain.type !== 'water') { // вода не считается препятствием
+                return false;
+            }
+            return true;
+        }
+
+        function showUnitInfo(unit, isEnemy = false) {
+            const infoDiv = document.getElementById('unit-info');
+            let html = `
+                <div style="font-size: 1.2em; margin-bottom: 10px;">
+                    <strong>${unit.type} ${unit.name}</strong>
+                </div>
+                <div class="unit-stats">
+                    <div>❤️ HP: ${unit.hp}</div>
+                    <div>⚔️ Атака: ${unit.attack}</div>
+                    <div>🏃 Инициатива: ${unit.initiative}</div>
+                    <div>📏 Дальность: ${unit.range || 1}</div>
+                </div>`;
+
+            if (!isEnemy && unit.activeAbility) {
+                html += `
+                    <div class="unit-ability">
+                        <div class="ability-name">✨ ${unit.activeAbility.name}</div>
+                        <div class="ability-description">${unit.activeAbility.description}</div>
+                        <div class="cooldown-info">⏱️ Перезарядка: ${unit.activeAbility.cooldown} хода</div>
+                    </div>`;
+            }
+
+            if (!isEnemy && unit.passiveAbility) {
+                html += `
+                    <div class="unit-ability">
+                        <div class="ability-name">🔮 ${unit.passiveAbility.name}</div>
+                        <div class="ability-description">${unit.passiveAbility.description}</div>
+                    </div>`;
+            }
+
+            if (!isEnemy) {
+                html += `
+                    <div class="action-buttons">
+                        <button class="action-button ${currentAction === 'move' ? 'active' : ''}" 
+                                onclick="setAction('move')">🏃 Движение</button>
+                        <button class="action-button ${currentAction === 'attack' ? 'active' : ''}" 
+                                onclick="setAction('attack')">⚔️ Атака</button>
+                        <button class="action-button ${currentAction === 'special' ? 'active' : ''}" 
+                                onclick="setAction('special')">✨ Способность</button>
+                        <button class="skip-turn-button" onclick="skipTurn()">⏭️ Пропустить ход</button>
+                    </div>`;
+            }
+
+            infoDiv.innerHTML = html;
+        }
+
+        function logAction(text) {
+            const log = document.getElementById('action-log');
+            const entry = document.createElement('div');
+            entry.innerHTML = text;
+            log.insertBefore(entry, log.firstChild);
+        }
+
+        function checkVictory() {
+            if(units.player.length === 0) {
+                alert('☠️ Поражение! Попробуйте еще раз.');
+                initGame();
+            }
+            if(units.enemy.length === 0) {
+                if(currentLevel < 3) {
+                    alert('🎉 Победа! Переходим на следующий уровень!');
+                    currentLevel++;
+                    initGame();
+                } else {
+                    alert('🏆 Поздравляем! Вы прошли все уровни!');
+                    initGame();
+                }
+            }
+        }
+
+        function updateBattlefield() {
+            const cells = document.getElementsByClassName('cell');
+            for(let cell of cells) {
+                cell.innerHTML = '';
+                cell.classList.remove('selected', 'available-move', 'available-attack', 'available-special');
+            }
+
+            [...units.player, ...units.enemy].forEach(unit => {
+                const cell = document.querySelector(`[data-x="${unit.x}"][data-y="${unit.y}"]`);
+                if(cell) {
+                    cell.innerHTML = unit.type;
+                    if(unit === selectedUnit) {
+                        cell.classList.add('selected');
+                    }
+                }
+            });
+
+            // Обновляем информацию о количестве врагов
+            document.getElementById('enemies-left').textContent = units.enemy.length;
+
+            // Если есть текущий юнит игрока, подсвечиваем его доступные ходы
+            const currentUnit = turnQueue[currentUnitIndex];
+            if(currentUnit && units.player.includes(currentUnit)) {
+                highlightAvailableCells(currentUnit);
+            }
+        }
+
+        function setAction(action) {
+            currentAction = action;
+            const buttons = document.querySelectorAll('.action-button');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.action-button[onclick="setAction('${action}')"]`).classList.add('active');
+            
+            if (selectedUnit) {
+                highlightAvailableCells(selectedUnit);
+            }
+        }
+
+        function useSpecialAbility(unit, targetX, targetY) {
+            if (unit.cooldowns && unit.cooldowns.special > 0) {
+                logAction(`❌ Способность ${unit.type} ${unit.name} еще перезаряжается (${unit.cooldowns.special} ходов)`);
+                return;
+            }
+
+            switch(unit.type) {
+                case '🧙': // Маг - Огненный шар
+                    const enemyMage = units.enemy.find(e => e.x === targetX && e.y === targetY);
+                    if (enemyMage) {
+                        attack(unit, enemyMage, unit.attack * 1.5);
+                        // Урон по соседним клеткам
+                        units.enemy.forEach(e => {
+                            if (Math.abs(e.x - targetX) <= 1 && Math.abs(e.y - targetY) <= 1 && e !== enemyMage) {
+                                attack(unit, e, unit.attack * 0.5);
+                            }
+                        });
+                        unit.cooldowns.special = unit.activeAbility.cooldown;
+                    }
+                    break;
+
+                case '🦁': // Лев - Рев
+                    const affectedEnemies = units.enemy.filter(e => 
+                        Math.abs(e.x - targetX) <= unit.activeAbility.range && 
+                        Math.abs(e.y - targetY) <= unit.activeAbility.range
+                    );
+                    affectedEnemies.forEach(enemy => {
+                        enemy.initiative -= 2;
+                        logAction(`🦁 ${unit.type} ${unit.name} оглушает ${enemy.type} ${enemy.name}`);
+                    });
+                    unit.cooldowns.special = unit.activeAbility.cooldown;
+                    break;
+
+                case '🏹': // Лучник - Залп
+                    const targets = units.enemy
+                        .filter(e => Math.abs(e.x - unit.x) <= unit.activeAbility.range)
+                        .slice(0, 3);
+                    targets.forEach(target => {
+                        attack(unit, target, unit.attack * 0.7);
+                    });
+                    unit.cooldowns.special = unit.activeAbility.cooldown;
+                    break;
+
+                case '💉': // Лекарь - Исцеление
+                    const ally = units.player.find(p => p.x === targetX && p.y === targetY);
+                    if (ally) {
+                        const healAmount = 30;
+                        ally.hp += healAmount;
+                        logAction(`💚 ${unit.type} ${unit.name} исцеляет ${ally.type} ${ally.name} (+${healAmount} HP)`);
+                        unit.cooldowns.special = unit.activeAbility.cooldown;
+                    }
+                    break;
+
+                case '🐉': // Дракончик - Огненное дыхание
+                    const lineTargets = units.enemy.filter(e => {
+                        const dx = e.x - unit.x;
+                        const dy = e.y - unit.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        return distance <= unit.activeAbility.range;
+                    });
+                    lineTargets.forEach(target => {
+                        attack(unit, target, unit.attack * 1.3);
+                    });
+                    unit.cooldowns.special = unit.activeAbility.cooldown;
+                    break;
+            }
+        }
+
+        function skipTurn() {
+            if(selectedUnit) {
+                logAction(`⏭️ ${selectedUnit.type} ${selectedUnit.name} пропускает ход`);
+                selectedUnit = null;
+                endTurn();
+            }
+        }
+
+        initGame();
+    </script>
+</body>
+</html> 

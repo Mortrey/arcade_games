@@ -147,14 +147,22 @@
     let frameCount = 0;
     let gameOver = false;
 
+    // Перемещаем арбузы на новые позиции
+    map[2][1] = 0; // Убираем арбуз из верхнего левого угла
+    map[2][26] = 3; // Оставляем арбуз в верхнем правом углу
+    map[13][1] = 3; // Оставляем арбуз в нижнем левом углу
+    map[13][26] = 3; // Оставляем арбуз в нижнем правом углу
+    map[7][13] = 3; // Добавляем арбуз в центр верхней части
+
+    // Теперь идет подсчет точек
     let totalDots = 0;
     let dotsEaten = 0;
     let remainingDots = 0;
-    map.forEach(row => row.forEach(cell => { 
-      if (cell === 0 || cell === 3) totalDots++; 
+    map.forEach(row => row.forEach(cell => {
+      if (cell === 0 || cell === 3) totalDots++;
     }));
     remainingDots = totalDots;
-    console.log('Total dots on map:', totalDots);
+    console.log('Total dots on map:', totalDots); // Проверьте это значение в консоли браузера
 
     let score = 0;
     const pacman = { x: 1, y: 1, dir: { x: 1, y: 0 }, nextDir: { x: 0, y: 0 } };
@@ -529,13 +537,6 @@
       draw();
       requestAnimationFrame(loop);
     }
-
-    // Перемещаем арбузы на новые позиции
-    map[2][1] = 0; // Убираем арбуз из верхнего левого угла
-    map[2][26] = 3; // Оставляем арбуз в верхнем правом углу
-    map[13][1] = 3; // Оставляем арбуз в нижнем левом углу
-    map[13][26] = 3; // Оставляем арбуз в нижнем правом углу
-    map[7][13] = 3; // Добавляем арбуз в центр верхней части
 
     loop();
   </script>
