@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Эмодзи-битва</title>
+    <style>
+        #battlefield {
+            border-collapse: collapse;
+            margin: 20px;
+        }
+        
+        .cell {
+            width: 60px;
+            height: 60px;
+            border: 1px solid #ccc;
+            text-align: center;
+            font-size: 30px;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .selected {
+            background-color: #ffeb3b;
+        }
+        
+        .info {
+            margin: 20px;
+            font-family: Arial;
+        }
+        
+        .unit-info {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+
+        @keyframes attack-animation {
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(10px, -5px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        .attack-effect {
+            animation: attack-animation 0.3s ease-in-out;
+        }
+
+        #action-log {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="info">Текущий ход: <span id="current-turn">-</span></div>
+    <table id="battlefield"></table>
+    <div class="unit-info" id="unit-info"></div>
+    <div class="info" id="action-log"></div>
+
+    <script>
+        const units = {
+            player: [
+                {type: '🦁', name: 'Лев', hp: 120, attack: 18, initiative: 8, x: 0, y: 1},
+                {type: '🛡️', name: 'Рыцарь', hp: 150, attack: 15, initiative: 5, x: 0, y: 2},
+                {type: '🧙', name: 'Маг', hp: 80, attack: 25, initiative: 7, x: 0, y: 3}
+            ],
+            enemy: [
+                {type: '👹', name: 'Демон', hp: 130, attack: 20, initiative: 6, x: 4, y: 1},
+                {type: '🧟', name: 'Зомби', hp: 90, attack: 12, initiative: 3, x: 4, y: 2},
+                {type: '👻', name: 'Призрак', hp: 70, attack: 18, initiative: 9, x: 4, y: 3}
+            ]
+        };
+
+        let selectedUnit = null;
+        let turnQueue = [];
+        let currentUnitIndex = 0;
+
+        function initGame() {
+            createBattlefield();
+            startNewRound();
+        }
+
+        function createBattlefield() {
+            const table = document.getElementById('battlefield');
+            table.innerHTML = '';
+            for(let y = 0; y < 5; y++) {
+                const row = table.insertRow();
+                for(let x = 0; x < 5; x++) {
+                    const cell = row.insertCell();
+                    cell.className = 'cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    cell.addEventListener('click', handleCellClick);
+                }
+            }
+            updateBattlefield();
+        }
+
+        function startNewRound() {
+            turnQueue = [...units.player, ...units.enemy]
+                .sort((a, b) => b.initiative - a.initiative);
+            
+            currentUnitIndex = 0;
+            processNextTurn();
+        }
+
+        function processNextTurn() {
+            if(currentUnitIndex >= turnQueue.length) {
+                startNewRound();
+                return;
+            }
+
+            const currentUnit = turnQueue[currentUnitIndex];
+            const isPlayerUnit = units.player.includes(currentUnit);
+            
+            document.getElementById('current-turn').textContent = 
+                `${currentUnit.type} ${currentUnit.name} (${isPlayerUnit ? 'Игрок' : 'Противник'})`;
+
+            if(!isPlayerUnit) {
+                setTimeout(() => enemyTurn(currentUnit), 500);
+            }
+        }
+
+        function updateBattlefield() {
+            const cells = document.getElementsByClassName('cell');
+            for(let cell of cells) {
+                cell.innerHTML = '';
+                cell.classList.remove('selected');
+            }
+
+            [...units.player, ...units.enemy].forEach(unit => {
+                const cell = document.querySelector(`[data-x="${unit.x}"][data-y="${unit.y}"]`);
+                if(cell) {
+                    cell.innerHTML = unit.type;
+                    if(unit === selectedUnit) cell.classList.add('selected');
+                }
+            });
+        }
+
+        function handleCellClick(e) {
+            const currentUnit = turnQueue[currentUnitIndex];
+            if(!units.player.includes(currentUnit)) return;
+
+            const x = parseInt(e.target.dataset.x);
+            const y = parseInt(e.target.dataset.y);
+            
+            const unit = units.player.find(u => u.x === x && u.y === y);
+            if(unit && unit === currentUnit) {
+                selectedUnit = unit;
+                updateBattlefield();
+                showUnitInfo(unit);
+                return;
+            }
+
+            if(selectedUnit === currentUnit) {
+                if(isEmptyCell(x, y) && isAdjacent(selectedUnit, {x, y})) {
+                    moveUnit(selectedUnit, x, y);
+                    selectedUnit = null;
+                    endTurn();
+                }
+                else {
+                    const enemy = units.enemy.find(u => u.x === x && u.y === y);
+                    if(enemy && isAdjacent(selectedUnit, enemy)) {
+                        attack(selectedUnit, enemy);
+                        endTurn();
+                    }
+                }
+            }
+        }
+
+        function endTurn() {
+            currentUnitIndex++;
+            selectedUnit = null;
+            document.getElementById('unit-info').innerHTML = '';
+            processNextTurn();
+        }
+
+        function isEmptyCell(x, y) {
+            return ![...units.player, ...units.enemy].some(u => u.x === x && u.y === y);
+        }
+
+        function isAdjacent(a, b) {
+            return Math.abs(a.x - b.x) <= 1 && Math.abs(a.y - b.y) <= 1;
+        }
+
+        function moveUnit(unit, newX, newY) {
+            unit.x = newX;
+            unit.y = newY;
+            logAction(`🏃 ${unit.type} ${unit.name} перемещается на (${newX}, ${newY})`);
+            updateBattlefield();
+        }
+
+        function attack(attacker, defender) {
+            const attackerCell = document.querySelector(`[data-x="${attacker.x}"][data-y="${attacker.y}"]`);
+            attackerCell.classList.add('attack-effect');
+            
+            setTimeout(() => {
+                defender.hp -= attacker.attack;
+                logAction(`⚔️ ${attacker.type} ${attacker.name} атакует ${defender.type} ${defender.name} (${defender.hp + attacker.attack} → ${defender.hp})`);
+                
+                if(defender.hp <= 0) {
+                    const faction = units.player.includes(defender) ? 'player' : 'enemy';
+                    units[faction] = units[faction].filter(u => u !== defender);
+                    logAction(`💀 ${defender.type} ${defender.name} уничтожен!`);
+                    checkVictory();
+                }
+                attackerCell.classList.remove('attack-effect');
+                updateBattlefield();
+            }, 300);
+        }
+
+        function enemyTurn(currentUnit) {
+            const targets = [...units.player];
+            if(targets.length === 0) return;
+
+            let nearestTarget = targets.reduce((prev, curr) => 
+                distance(currentUnit, curr) < distance(currentUnit, prev) ? curr : prev
+            , targets[0]);
+
+            // Логика атаки
+            if(isAdjacent(currentUnit, nearestTarget)) {
+                attack(currentUnit, nearestTarget);
+                endTurn();
+                return;
+            }
+
+            // Улучшенная логика движения
+            const dx = nearestTarget.x - currentUnit.x;
+            const dy = nearestTarget.y - currentUnit.y;
+            
+            let moveX = currentUnit.x;
+            let moveY = currentUnit.y;
+            
+            // Пробуем двигаться по диагонали, если возможно
+            if(isValidCell({x: currentUnit.x + Math.sign(dx), y: currentUnit.y + Math.sign(dy)})) {
+                moveX += Math.sign(dx);
+                moveY += Math.sign(dy);
+            } 
+            // Иначе двигаемся по прямой
+            else if(Math.abs(dx) > Math.abs(dy)) {
+                moveX += Math.sign(dx);
+            } else {
+                moveY += Math.sign(dy);
+            }
+
+            // Если не удалось двигаться, пробуем обойти препятствия
+            if(!isValidCell({x: moveX, y: moveY})) {
+                const possibleMoves = [
+                    {x: currentUnit.x + 1, y: currentUnit.y},
+                    {x: currentUnit.x - 1, y: currentUnit.y},
+                    {x: currentUnit.x, y: currentUnit.y + 1},
+                    {x: currentUnit.x, y: currentUnit.y - 1}
+                ];
+                
+                for(let move of possibleMoves) {
+                    if(isValidCell(move)) {
+                        moveX = move.x;
+                        moveY = move.y;
+                        break;
+                    }
+                }
+            }
+            
+            if(moveX !== currentUnit.x || moveY !== currentUnit.y) {
+                moveUnit(currentUnit, moveX, moveY);
+            }
+            
+            endTurn();
+        }
+
+        function distance(unit1, unit2) {
+            return Math.abs(unit1.x - unit2.x) + Math.abs(unit1.y - unit2.y);
+        }
+
+        function isValidCell(pos) {
+            return pos.x >= 0 && pos.x < 5 && pos.y >= 0 && pos.y < 5 && isEmptyCell(pos.x, pos.y);
+        }
+
+        function showUnitInfo(unit) {
+            const infoDiv = document.getElementById('unit-info');
+            infoDiv.innerHTML = `
+                <strong>${unit.type} ${unit.name}</strong><br>
+                ❤️ HP: ${unit.hp}<br>
+                ⚔️ Атака: ${unit.attack}<br>
+                🏃 Инициатива: ${unit.initiative}
+            `;
+        }
+
+        function logAction(text) {
+            const log = document.getElementById('action-log');
+            const entry = document.createElement('div');
+            entry.innerHTML = text;
+            log.insertBefore(entry, log.firstChild);
+        }
+
+        function checkVictory() {
+            if(units.player.length === 0) alert('☠️ Победа противника!');
+            if(units.enemy.length === 0) alert('🎉 Победа игрока!');
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
