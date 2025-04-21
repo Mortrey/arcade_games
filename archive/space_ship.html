@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Звездный корабль</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+        #gameContainer {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: #111;
+            overflow: hidden;
+            border: 2px solid #333;
+        }
+        #player {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 40px;
+        }
+        .enemy {
+            position: absolute;
+            font-size: 30px;
+        }
+        .meteor {
+            position: absolute;
+            font-size: 25px;
+        }
+        .bullet {
+            position: absolute;
+            width: 5px;
+            height: 15px;
+            background: red;
+        }
+        .explosion {
+            position: absolute;
+            font-size: 30px;
+            animation: explode 0.5s forwards;
+        }
+        @keyframes explode {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 20px;
+        }
+        #lives {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            font-size: 20px;
+        }
+        #difficulty {
+            position: absolute;
+            top: 40px;
+            left: 10px;
+            color: white;
+            font-size: 20px;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: red;
+            font-size: 48px;
+            text-align: center;
+            display: none;
+        }
+        #restartButton {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 10px 20px;
+            font-size: 24px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+        }
+        #restartButton:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="player">👨‍🚀</div>
+        <div id="score">Счёт: 0</div>
+        <div id="lives">Жизни: 3</div>
+        <div id="difficulty">Уровень: 1</div>
+        <div id="gameOver">
+            ИГРА ОКОНЧЕНА
+            <button id="restartButton">Начать заново</button>
+        </div>
+    </div>
+    <script>
+        // Игровые переменные
+        const gameContainer = document.getElementById('gameContainer');
+        const player = document.getElementById('player');
+        const scoreElement = document.getElementById('score');
+        const livesElement = document.getElementById('lives');
+        const difficultyElement = document.getElementById('difficulty');
+        const gameOverElement = document.getElementById('gameOver');
+        const restartButton = document.getElementById('restartButton');
+
+        let score = 0;
+        let lives = 3;
+        let difficulty = 1;
+        let gameLoop;
+        let enemyInterval;
+        let meteorInterval;
+        let isGameOver = false;
+
+        // Управление игроком
+        let playerX = gameContainer.offsetWidth / 2;
+        const playerSpeed = 5;
+        const keys = {};
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        // Звуковые эффекты
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function createSound(frequency, duration, type = 'square') {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = type;
+            oscillator.frequency.value = frequency;
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        // Функции для разных звуков
+        function playShootSound() {
+            createSound(880, 0.1, 'square');
+        }
+
+        function playExplosionSound() {
+            createSound(220, 0.3, 'sawtooth');
+        }
+
+        function playScoreSound() {
+            createSound(440, 0.1, 'sine');
+        }
+
+        function playLifeLostSound() {
+            createSound(110, 0.5, 'triangle');
+        }
+
+        // Создание врагов и метеоритов
+        function createEnemy() {
+            if (isGameOver) return;
+            const enemy = document.createElement('div');
+            enemy.className = 'enemy';
+            const aliens = ['🛸', '👽'];
+            enemy.textContent = aliens[Math.floor(Math.random() * aliens.length)];
+            enemy.style.left = Math.random() * (gameContainer.offsetWidth - 40) + 'px';
+            enemy.style.top = '0px';
+            gameContainer.appendChild(enemy);
+        }
+
+        function createMeteor() {
+            if (isGameOver) return;
+            const meteor = document.createElement('div');
+            meteor.className = 'meteor';
+            const meteors = ['🌕', '🌎', '🪐', '🌑'];
+            meteor.textContent = meteors[Math.floor(Math.random() * meteors.length)];
+            meteor.style.left = Math.random() * (gameContainer.offsetWidth - 30) + 'px';
+            meteor.style.top = '0px';
+            gameContainer.appendChild(meteor);
+        }
+
+        // Создание взрыва
+        function createExplosion(x, y) {
+            playExplosionSound();
+            const explosion = document.createElement('div');
+            explosion.className = 'explosion';
+            explosion.textContent = '💥';
+            explosion.style.left = x + 'px';
+            explosion.style.top = y + 'px';
+            gameContainer.appendChild(explosion);
+            setTimeout(() => explosion.remove(), 500);
+        }
+
+        // Стрельба
+        function shoot() {
+            if (isGameOver) return;
+            playShootSound();
+            const bullet = document.createElement('div');
+            bullet.className = 'bullet';
+            bullet.style.left = (playerX + 22) + 'px';
+            bullet.style.bottom = '70px';
+            gameContainer.appendChild(bullet);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ') {
+                shoot();
+            }
+        });
+
+        // Основной игровой цикл
+        function gameUpdate() {
+            if (isGameOver) return;
+
+            // Движение игрока
+            if (keys['ArrowLeft'] && playerX > 0) {
+                playerX -= playerSpeed;
+            }
+            if (keys['ArrowRight'] && playerX < gameContainer.offsetWidth - 50) {
+                playerX += playerSpeed;
+            }
+            player.style.left = playerX + 'px';
+
+            // Движение врагов и метеоритов
+            const enemies = document.querySelectorAll('.enemy');
+            const meteors = document.querySelectorAll('.meteor');
+            const bullets = document.querySelectorAll('.bullet');
+
+            // Обновление позиций врагов
+            enemies.forEach(enemy => {
+                const top = parseFloat(enemy.style.top);
+                enemy.style.top = (top + 0.5 * difficulty) + 'px';
+
+                // Проверка столкновения с игроком
+                if (isColliding(enemy, player)) {
+                    lives--;
+                    livesElement.textContent = `Жизни: ${lives}`;
+                    playLifeLostSound();
+                    createExplosion(parseFloat(enemy.style.left), parseFloat(enemy.style.top));
+                    enemy.remove();
+                    if (lives <= 0) {
+                        gameOver();
+                    }
+                } else if (top > gameContainer.offsetHeight) {
+                    lives--;
+                    livesElement.textContent = `Жизни: ${lives}`;
+                    playLifeLostSound();
+                    enemy.remove();
+                    if (lives <= 0) {
+                        gameOver();
+                    }
+                }
+            });
+
+            // Обновление позиций метеоритов
+            meteors.forEach(meteor => {
+                const top = parseFloat(meteor.style.top);
+                meteor.style.top = (top + 1 * difficulty) + 'px';
+
+                // Проверка столкновения с игроком
+                if (isColliding(meteor, player)) {
+                    lives--;
+                    livesElement.textContent = `Жизни: ${lives}`;
+                    playLifeLostSound();
+                    createExplosion(parseFloat(meteor.style.left), parseFloat(meteor.style.top));
+                    meteor.remove();
+                    if (lives <= 0) {
+                        gameOver();
+                    }
+                } else if (top > gameContainer.offsetHeight) {
+                    meteor.remove();
+                }
+            });
+
+            // Обновление позиций пуль
+            bullets.forEach(bullet => {
+                const bottom = parseFloat(bullet.style.bottom);
+                bullet.style.bottom = (bottom + 5) + 'px';
+
+                // Проверка попадания только во врагов
+                enemies.forEach(enemy => {
+                    if (isColliding(bullet, enemy)) {
+                        createExplosion(parseFloat(enemy.style.left), parseFloat(enemy.style.top));
+                        bullet.remove();
+                        enemy.remove();
+                        score += 10;
+                        scoreElement.textContent = `Счёт: ${score}`;
+                        playScoreSound();
+                        
+                        // Увеличение сложности
+                        if (score % 100 === 0) {
+                            difficulty++;
+                            difficultyElement.textContent = `Уровень: ${difficulty}`;
+                        }
+                    }
+                });
+
+                // Удаление пуль за пределами экрана
+                if (bottom > gameContainer.offsetHeight) {
+                    bullet.remove();
+                }
+            });
+        }
+
+        // Проверка столкновений
+        function isColliding(element1, element2) {
+            const rect1 = element1.getBoundingClientRect();
+            const rect2 = element2.getBoundingClientRect();
+            return !(rect1.right < rect2.left || 
+                    rect1.left > rect2.right || 
+                    rect1.bottom < rect2.top || 
+                    rect1.top > rect2.bottom);
+        }
+
+        // Функция окончания игры
+        function gameOver() {
+            isGameOver = true;
+            gameOverElement.style.display = 'block';
+            restartButton.style.display = 'block';
+            clearInterval(gameLoop);
+            clearInterval(enemyInterval);
+            clearInterval(meteorInterval);
+        }
+
+        // Функция перезапуска игры
+        function restartGame() {
+            // Очистка всех элементов
+            const elements = document.querySelectorAll('.enemy, .meteor, .bullet');
+            elements.forEach(element => element.remove());
+
+            // Сброс переменных
+            score = 0;
+            lives = 3;
+            difficulty = 1;
+            isGameOver = false;
+            playerX = gameContainer.offsetWidth / 2;
+            player.style.left = playerX + 'px';
+
+            // Обновление интерфейса
+            scoreElement.textContent = `Счёт: ${score}`;
+            livesElement.textContent = `Жизни: ${lives}`;
+            difficultyElement.textContent = `Уровень: ${difficulty}`;
+            gameOverElement.style.display = 'none';
+            restartButton.style.display = 'none';
+
+            // Перезапуск игры
+            startGame();
+        }
+
+        // Обработчик кнопки перезапуска
+        restartButton.addEventListener('click', restartGame);
+
+        // Запуск игры
+        function startGame() {
+            gameLoop = setInterval(gameUpdate, 1000 / 60);
+            enemyInterval = setInterval(createEnemy, 2000 / difficulty);
+            meteorInterval = setInterval(createMeteor, 1500 / difficulty);
+        }
+
+        startGame();
+    </script>
+</body>
+</html>

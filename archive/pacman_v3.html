@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pacman</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+      color: #fff;
+      font-family: sans-serif;
+    }
+    #score {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 32px;
+      z-index: 2;
+    }
+    #lives {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 32px;
+      z-index: 2;
+    }
+    canvas {
+      background: #000;
+      image-rendering: pixelated;
+      border: 5px solid white;
+      z-index: 1;
+    }
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      font-size: 64px;
+      text-align: center;
+      flex-direction: column;
+      z-index: 3;
+      visibility: hidden;
+    }
+    #overlay button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .power-pellet {
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    #pause-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      font-size: 32px;
+      z-index: 3;
+      visibility: hidden;
+      text-align: center;
+      flex-direction: column;
+    }
+    #pause-overlay .subtitle {
+      font-size: 24px;
+      margin-top: 10px;
+      color: #ffeb3b;
+    }
+  </style>
+</head>
+<body>
+  <div id="score">Score: 0</div>
+  <div id="lives">❤️❤️❤️</div>
+  <canvas id="game"></canvas>
+  <div id="overlay">
+    <div id="game-over-text"></div>
+    <button id="restart-btn">Restart</button>
+  </div>
+  <div id="pause-overlay">
+    <div>Тебя убили!</div>
+    <div class="subtitle">Попробуй еще раз и будь осторожнее</div>
+  </div>
+  <audio id="chomp" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU" preload="auto"></audio>
+  <audio id="death" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU" preload="auto"></audio>
+  <audio id="victory" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU" preload="auto"></audio>
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreBoard = document.getElementById('score');
+    const overlay = document.getElementById('overlay');
+    const gameOverText = document.getElementById('game-over-text');
+    const restartBtn = document.getElementById('restart-btn');
+
+    const map = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1,1,0,1,1,0,1],
+      [1,0,1,1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1,1,0,1,1,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,0,1,1,0,1],
+      [1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+      [1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,1],
+      [1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,1],
+      [1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1,1,0,1,1,0,1],
+      [1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+      [1,1,1,1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    const scale = 2 / 3;
+    const tileSize = 80 * scale;
+    const rows = map.length;
+    const cols = map[0].length;
+    const canvasWidth = cols * tileSize;
+    const canvasHeight = rows * tileSize;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
+    const speed = 10;
+    let frameCount = 0;
+    let gameOver = false;
+
+    // Перемещаем арбузы на новые позиции
+    map[2][1] = 0; // Убираем арбуз из верхнего левого угла
+    map[2][26] = 3; // Оставляем арбуз в верхнем правом углу
+    map[13][1] = 3; // Оставляем арбуз в нижнем левом углу
+    map[13][26] = 3; // Оставляем арбуз в нижнем правом углу
+    map[7][13] = 3; // Добавляем арбуз в центр верхней части
+
+    // Теперь идет подсчет точек
+    let totalDots = 0;
+    let dotsEaten = 0;
+    let remainingDots = 0;
+    map.forEach(row => row.forEach(cell => {
+      if (cell === 0 || cell === 3) totalDots++;
+    }));
+    remainingDots = totalDots;
+    console.log('Total dots on map:', totalDots); // Проверьте это значение в консоли браузера
+
+    let score = 0;
+    const pacman = { x: 1, y: 1, dir: { x: 1, y: 0 }, nextDir: { x: 0, y: 0 } };
+    const ghosts = [
+      { x: 13, y: 7, dir: { x: 1, y: 0 }, color: 'red', emoji: '👻' },
+      { x: 14, y: 7, dir: { x: -1, y: 0 }, color: 'pink', emoji: '👻' }
+    ];
+
+    const chompSound = document.getElementById('chomp');
+    const deathSound = document.getElementById('death');
+    const victorySound = document.getElementById('victory');
+    
+    // Создаем звуки программно
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function createChompSound() {
+      const time = audioContext.currentTime;
+      const duration = 0.08;
+      
+      // Создаем несколько осцилляторов для более богатого звука
+      const frequencies = [220, 330, 440];
+      
+      frequencies.forEach(freq => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(freq, time);
+        
+        // Создаем огибающую для более реалистичного звука
+        gainNode.gain.setValueAtTime(0, time);
+        gainNode.gain.linearRampToValueAtTime(0.15, time + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        
+        oscillator.start(time);
+        oscillator.stop(time + duration);
+      });
+      
+      // Добавляем шум для хруста
+      const noiseBuffer = audioContext.createBuffer(1, audioContext.sampleRate * duration, audioContext.sampleRate);
+      const noiseData = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < noiseBuffer.length; i++) {
+        noiseData[i] = Math.random() * 2 - 1;
+      }
+      
+      const noiseSource = audioContext.createBufferSource();
+      const noiseGain = audioContext.createGain();
+      
+      noiseSource.buffer = noiseBuffer;
+      noiseSource.connect(noiseGain);
+      noiseGain.connect(audioContext.destination);
+      
+      noiseGain.gain.setValueAtTime(0, time);
+      noiseGain.gain.linearRampToValueAtTime(0.05, time + 0.01);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+      
+      noiseSource.start(time);
+      noiseSource.stop(time + duration);
+    }
+    
+    function createVictorySound() {
+      const frequencies = [440, 554, 659, 880];
+      const duration = 0.15;
+      const startTime = audioContext.currentTime;
+      
+      frequencies.forEach((freq, i) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(freq, startTime + i * duration);
+        gainNode.gain.setValueAtTime(0.2, startTime + i * duration);
+        
+        oscillator.start(startTime + i * duration);
+        oscillator.stop(startTime + (i + 1) * duration);
+      });
+    }
+    
+    function createDeathSound() {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(220, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(55, audioContext.currentTime + 0.5);
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.5);
+    }
+    
+    function createGameOverSound() {
+      const frequencies = [220, 196, 175, 165];
+      const duration = 0.2;
+      const startTime = audioContext.currentTime;
+      
+      frequencies.forEach((freq, i) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(freq, startTime + i * duration);
+        gainNode.gain.setValueAtTime(0.3, startTime + i * duration);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + (i + 1) * duration);
+        
+        oscillator.start(startTime + i * duration);
+        oscillator.stop(startTime + (i + 1) * duration);
+      });
+    }
+    
+    function createWatermelonSound() {
+      const time = audioContext.currentTime;
+      const duration = 0.3;
+      
+      // Создаем несколько осцилляторов для сочного звука
+      const frequencies = [440, 550, 660];
+      
+      frequencies.forEach((freq, i) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(freq, time + i * 0.05);
+        
+        gainNode.gain.setValueAtTime(0, time + i * 0.05);
+        gainNode.gain.linearRampToValueAtTime(0.2, time + i * 0.05 + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        
+        oscillator.start(time + i * 0.05);
+        oscillator.stop(time + duration);
+      });
+    }
+    
+    let mouthOpen = true;
+    const MOUTH_CLOSED = 0.1 * Math.PI;
+    const MOUTH_OPEN = 0.4 * Math.PI;
+
+    document.addEventListener('keydown', e => {
+      switch (e.key) {
+        case 'ArrowUp': pacman.nextDir = { x: 0, y: -1 }; break;
+        case 'ArrowDown': pacman.nextDir = { x: 0, y: 1 }; break;
+        case 'ArrowLeft': pacman.nextDir = { x: -1, y: 0 }; break;
+        case 'ArrowRight': pacman.nextDir = { x: 1, y: 0 }; break;
+      }
+    });
+
+    function canMove(x, y) {
+      return map[y] && map[y][x] !== 1;
+    }
+
+    let lives = 3;
+    let powerMode = false;
+    let powerModeTimer = null;
+    const POWER_MODE_DURATION = 2500; // 2.5 секунды
+    const POWER_PELLET_SCORE = 50;
+    const GHOST_SCORE = 200;
+    const RESPAWN_DELAY = 2000; // 2 секунды паузы после смерти
+    const GHOST_RESPAWN_DELAY = 10000; // 10 секунд до появления призрака
+    let isRespawning = false;
+    let ghostRespawnTimers = [];
+    
+    function updateLivesDisplay() {
+      document.getElementById('lives').textContent = '❤️'.repeat(lives);
+    }
+    
+    function startPowerMode() {
+      powerMode = true;
+      if (powerModeTimer) clearTimeout(powerModeTimer);
+      powerModeTimer = setTimeout(() => {
+        powerMode = false;
+      }, POWER_MODE_DURATION);
+    }
+    
+    function respawnGhost(ghost, index) {
+      ghost.x = 13 + index;
+      ghost.y = 7;
+      ghost.isRespawning = false;
+    }
+    
+    function respawnPacman() {
+      isRespawning = true;
+      document.getElementById('pause-overlay').style.visibility = 'visible';
+      
+      setTimeout(() => {
+        pacman.x = 1;
+        pacman.y = 1;
+        pacman.dir = { x: 1, y: 0 };
+        pacman.nextDir = { x: 0, y: 0 };
+        isRespawning = false;
+        document.getElementById('pause-overlay').style.visibility = 'hidden';
+      }, RESPAWN_DELAY);
+    }
+    
+    function update() {
+      if (isRespawning) return;
+      
+      const prevPac = { x: pacman.x, y: pacman.y };
+      const prevGhosts = ghosts.map(g => ({ x: g.x, y: g.y }));
+
+      const nx = pacman.x + pacman.nextDir.x;
+      const ny = pacman.y + pacman.nextDir.y;
+      if (canMove(nx, ny)) pacman.dir = pacman.nextDir;
+      const px = pacman.x + pacman.dir.x;
+      const py = pacman.y + pacman.dir.y;
+      if (canMove(px, py)) { 
+        pacman.x = px; 
+        pacman.y = py;
+        mouthOpen = !mouthOpen;
+      }
+
+      if (map[pacman.y][pacman.x] === 0) {
+        map[pacman.y][pacman.x] = 2;
+        score += 10;
+        dotsEaten++;
+        remainingDots--;
+        scoreBoard.textContent = 'Score: ' + score;
+        createChompSound();
+        
+        if (remainingDots === 0) {
+          gameOver = true;
+          gameOverText.innerHTML = `Victory!<br>Score: ${score}`;
+          overlay.style.visibility = 'visible';
+          createVictorySound();
+        }
+      } else if (map[pacman.y][pacman.x] === 3) {
+        map[pacman.y][pacman.x] = 2;
+        score += POWER_PELLET_SCORE;
+        dotsEaten++;
+        remainingDots--;
+        scoreBoard.textContent = 'Score: ' + score;
+        createWatermelonSound();
+        startPowerMode();
+        
+        if (remainingDots === 0) {
+          gameOver = true;
+          gameOverText.innerHTML = `Victory!<br>Score: ${score}`;
+          overlay.style.visibility = 'visible';
+          createVictorySound();
+        }
+      }
+
+      ghosts.forEach((g, i) => {
+        if (g.isRespawning) return;
+        
+        const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+        const ok = canMove(g.x + g.dir.x, g.y + g.dir.y);
+        if (!ok || Math.random() < 0.1) {
+          const opts = dirs.filter(d => canMove(g.x + d.x, g.y + d.y));
+          if (opts.length) g.dir = opts[Math.floor(Math.random() * opts.length)];
+        }
+        g.x += g.dir.x;
+        g.y += g.dir.y;
+        const prevG = prevGhosts[i];
+        const collision =
+          (g.x === pacman.x && g.y === pacman.y) ||
+          (prevPac.x === g.x && prevPac.y === g.y && prevG.x === pacman.x && prevG.y === pacman.y);
+        if (collision) {
+          if (powerMode) {
+            score += GHOST_SCORE;
+            scoreBoard.textContent = 'Score: ' + score;
+            g.isRespawning = true;
+            if (ghostRespawnTimers[i]) clearTimeout(ghostRespawnTimers[i]);
+            ghostRespawnTimers[i] = setTimeout(() => respawnGhost(g, i), GHOST_RESPAWN_DELAY);
+          } else if (!gameOver) {
+            lives--;
+            updateLivesDisplay();
+            createDeathSound();
+            if (lives <= 0) {
+              gameOver = true;
+              gameOverText.innerHTML = `Game Over<br>Score: ${score}`;
+              overlay.style.visibility = 'visible';
+              createGameOverSound();
+            } else {
+              respawnPacman();
+            }
+          }
+        }
+      });
+    }
+
+    restartBtn.addEventListener('click', () => location.reload());
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const v = map[y][x];
+          if (v === 1) ctx.fillStyle = 'blue';
+          else if (v === 0) ctx.fillStyle = 'white';
+          else if (v === 3) ctx.fillStyle = powerMode ? '#ff0000' : '#ff00ff';
+          if (v === 1) ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+          if (v === 0) {
+            ctx.beginPath();
+            ctx.arc(x * tileSize + tileSize/2, y * tileSize + tileSize/2, tileSize/8, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+          if (v === 3) {
+            // Рисуем арбуз
+            const centerX = x * tileSize + tileSize/2;
+            const centerY = y * tileSize + tileSize/2;
+            const size = tileSize/2;
+            
+            // Зеленый фон
+            ctx.fillStyle = '#2d5a27';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Красная мякоть
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size * 0.8, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Черные семечки
+            ctx.fillStyle = '#000000';
+            for (let i = 0; i < 5; i++) {
+              const angle = (i / 5) * 2 * Math.PI;
+              const seedX = centerX + Math.cos(angle) * size * 0.4;
+              const seedY = centerY + Math.sin(angle) * size * 0.4;
+              ctx.beginPath();
+              ctx.arc(seedX, seedY, size * 0.1, 0, 2 * Math.PI);
+              ctx.fill();
+            }
+          }
+        }
+      }
+      
+      // Draw Pacman с анимацией рта
+      const cx = pacman.x * tileSize + tileSize/2;
+      const cy = pacman.y * tileSize + tileSize/2;
+      const dir = pacman.dir;
+      let angle = Math.atan2(dir.y, dir.x);
+      if (dir.x === 0 && dir.y === 0) angle = 0;
+      ctx.fillStyle = powerMode ? '#ff0000' : 'yellow';
+      ctx.beginPath();
+      ctx.arc(cx, cy, tileSize/2 - tileSize*0.05, angle + (mouthOpen ? MOUTH_OPEN : MOUTH_CLOSED), angle - (mouthOpen ? MOUTH_OPEN : MOUTH_CLOSED), false);
+      ctx.lineTo(cx, cy);
+      ctx.fill();
+
+      // Draw Ghosts as emoji
+      ghosts.forEach(g => {
+        if (g.isRespawning) return;
+        
+        ctx.font = `${tileSize * 0.8}px 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = powerMode ? '#0000ff' : g.color;
+        ctx.fillText(g.emoji, g.x * tileSize + tileSize/2, g.y * tileSize + tileSize/2);
+      });
+    }
+
+    function loop() {
+      frameCount++;
+      if (frameCount % speed === 0 && !gameOver) update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

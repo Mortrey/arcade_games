@@ -250,48 +250,8 @@
             100% { transform: scale(1) translate(0, 0); }
         }
 
-        @keyframes explosion {
-            0% {
-                transform: scale(0);
-                opacity: 1;
-                background: radial-gradient(circle, #ff4444 0%, transparent 70%);
-            }
-            100% {
-                transform: scale(2);
-                opacity: 0;
-                background: radial-gradient(circle, #ff4444 0%, transparent 70%);
-            }
-        }
-
         .attack-effect {
             animation: attack-animation 0.3s ease-in-out;
-        }
-
-        .explosion-effect {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            animation: explosion 0.5s ease-out forwards;
-            pointer-events: none;
-        }
-
-        .attack-line {
-            position: fixed;
-            height: 2px;
-            background: linear-gradient(90deg, #ff4444, #ff8888);
-            transform-origin: left;
-            z-index: 999;
-            animation: fadeIn 0.2s ease-in, fadeOut 0.2s ease-out 0.3s;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
         }
 
         .terrain {
@@ -973,12 +933,7 @@
 
                     // Движение (включая диагональное)
                     if (currentAction === 'move') {
-                        if (unit.type === '🦅') { // Грифон
-                            // Может двигаться на 2 клетки и перелетать через преграды
-                            if (diagonalDistance <= 2 && isEmptyCell(x, y)) {
-                                cell.classList.add('available-move');
-                            }
-                        } else if (diagonalDistance <= 1 && isValidCell({x, y})) {
+                        if (diagonalDistance <= 1 && isValidCell({x, y})) {
                             cell.classList.add('available-move');
                         }
                     }
@@ -1034,25 +989,20 @@
             const x = parseInt(e.target.dataset.x);
             const y = parseInt(e.target.dataset.y);
             
-            // Находим юнита по координатам
-            const clickedUnit = [...units.player, ...units.enemy].find(u => u.x === x && u.y === y);
-            
-            // Если кликнули по юниту
-            if (clickedUnit) {
-                // Показываем информацию о юните
-                showUnitInfo(clickedUnit, units.enemy.includes(clickedUnit));
-                
-                // Если это юнит игрока и сейчас его ход
-                const currentUnit = turnQueue[currentUnitIndex];
-                if (units.player.includes(clickedUnit) && clickedUnit === currentUnit) {
-                    selectedUnit = clickedUnit;
+            const currentUnit = turnQueue[currentUnitIndex];
+            if(!units.player.includes(currentUnit)) return;
+
+            // Если кликнули по текущему юниту
+            const unit = units.player.find(u => u.x === x && u.y === y);
+            if(unit && unit === currentUnit) {
+                selectedUnit = unit;
                 updateBattlefield();
+                showUnitInfo(unit);
                 return;
-                }
             }
 
-            // Если есть выбранный юнит и это его ход
-            if (selectedUnit && selectedUnit === turnQueue[currentUnitIndex]) {
+            // Если юнит уже выбран
+            if(selectedUnit === currentUnit) {
                 if (currentAction === 'move' && e.target.classList.contains('available-move')) {
                     // Проверяем, не занята ли клетка препятствием
                     const terrain = LEVELS[currentLevel].terrain.find(t => t.x === x && t.y === y);
@@ -1075,6 +1025,12 @@
                     selectedUnit = null;
                     endTurn();
                 }
+            } else {
+                // Если нет выбранного юнита, показываем информацию о вражеском юните
+                const enemyUnit = units.enemy.find(u => u.x === x && u.y === y);
+                if (enemyUnit) {
+                    showUnitInfo(enemyUnit, true);
+                }
             }
         }
 
@@ -1083,58 +1039,6 @@
             turnQueue.forEach(unit => {
                 if (unit.cooldowns && unit.cooldowns.special > 0) {
                     unit.cooldowns.special--;
-                }
-                
-                // Обработка эффектов
-                if (unit.protectionDuration > 0) {
-                    unit.protectionDuration--;
-                    if (unit.protectionDuration === 0) {
-                        unit.protectedBy = null;
-                        logAction(`🛡️ Защита ${unit.type} ${unit.name} закончилась`);
-                    }
-                }
-                
-                if (unit.rageDuration > 0) {
-                    unit.rageDuration--;
-                    if (unit.rageDuration === 0) {
-                        unit.attack = unit.originalAttack;
-                        unit.rageActive = false;
-                        logAction(`⚔️ Ярость ${unit.type} ${unit.name} закончилась`);
-                    }
-                }
-                
-                if (unit.stunned) {
-                    unit.stunDuration--;
-                    if (unit.stunDuration === 0) {
-                        unit.stunned = false;
-                        logAction(`💫 ${unit.type} ${unit.name} больше не оглушен`);
-                    }
-                }
-
-                if (unit.trapped) {
-                    unit.trapDuration--;
-                    if (unit.trapDuration === 0) {
-                        unit.trapped = false;
-                        logAction(`🧝 Ловушка для ${unit.type} ${unit.name} исчезла`);
-                    }
-                }
-
-                if (unit.invisible) {
-                    unit.invisibilityDuration--;
-                    if (unit.invisibilityDuration === 0) {
-                        unit.invisible = false;
-                        logAction(`🗡️ ${unit.type} ${unit.name} снова видим`);
-                    }
-                }
-
-                if (unit.inspired) {
-                    unit.inspirationDuration--;
-                    if (unit.inspirationDuration === 0) {
-                        unit.attack = unit.originalAttack;
-                        unit.initiative = unit.originalInitiative;
-                        unit.inspired = false;
-                        logAction(`🎭 Эффект воодушевления ${unit.type} ${unit.name} закончился`);
-                    }
                 }
             });
 
@@ -1205,51 +1109,39 @@
                 // Анимация атаки
                 attackerCell.classList.add('attack-effect');
                 
-                const isRangedAttack = Math.abs(attacker.x - defender.x) + Math.abs(attacker.y - defender.y) > 1;
+                // Создаем элемент для анимации атаки
+                const attackEffect = document.createElement('div');
+                attackEffect.style.position = 'fixed';
+                attackEffect.style.width = '2px';
+                attackEffect.style.background = 'red';
+                attackEffect.style.transformOrigin = 'top';
+                attackEffect.style.zIndex = '999';
                 
-                if (isRangedAttack) {
-                    // Создаем элемент для анимации дальней атаки (линия)
-                    const attackLine = document.createElement('div');
-                    attackLine.className = 'attack-line';
-                    
-                    const startRect = attackerCell.getBoundingClientRect();
-                    const endRect = defenderCell.getBoundingClientRect();
-                    
-                    const angle = Math.atan2(endRect.top - startRect.top, endRect.left - startRect.left);
-                    const distance = Math.sqrt(
-                        Math.pow(endRect.left - startRect.left, 2) + 
-                        Math.pow(endRect.top - startRect.top, 2)
-                    );
-                    
-                    attackLine.style.left = (startRect.left + startRect.width/2) + 'px';
-                    attackLine.style.top = (startRect.top + startRect.height/2) + 'px';
-                    attackLine.style.width = distance + 'px';
-                    attackLine.style.transform = `rotate(${angle}rad)`;
-                    
-                    document.body.appendChild(attackLine);
-                    
-                    setTimeout(() => {
-                        document.body.removeChild(attackLine);
-                    }, 500);
-                } else {
-                    // Создаем элемент для анимации ближней атаки (взрыв)
-                    const explosion = document.createElement('div');
-                    explosion.className = 'explosion-effect';
-                    defenderCell.appendChild(explosion);
-                    
-                    setTimeout(() => {
-                        defenderCell.removeChild(explosion);
-                    }, 500);
-                }
+                const startRect = attackerCell.getBoundingClientRect();
+                const endRect = defenderCell.getBoundingClientRect();
+                
+                const angle = Math.atan2(endRect.top - startRect.top, endRect.left - startRect.left);
+                const distance = Math.sqrt(
+                    Math.pow(endRect.left - startRect.left, 2) + 
+                    Math.pow(endRect.top - startRect.top, 2)
+                );
+                
+                attackEffect.style.left = startRect.left + startRect.width/2 + 'px';
+                attackEffect.style.top = startRect.top + startRect.height/2 + 'px';
+                attackEffect.style.height = distance + 'px';
+                attackEffect.style.transform = `rotate(${angle}rad)`;
+                
+                document.body.appendChild(attackEffect);
+                
+                // Анимация атаки
+                attackEffect.style.transition = 'opacity 0.3s';
+                requestAnimationFrame(() => {
+                    attackEffect.style.opacity = '0';
+                });
                 
                 setTimeout(() => {
+                    document.body.removeChild(attackEffect);
                     attackerCell.classList.remove('attack-effect');
-                    
-                    // Проверяем защиту
-                    if (defender.protectedBy) {
-                        damage = 0;
-                        logAction(`🛡️ ${defender.protectedBy.type} ${defender.protectedBy.name} защищает ${defender.type} ${defender.name} от атаки!`);
-                    }
                     
                     // Применяем урон
                     defender.hp -= damage;
@@ -1267,20 +1159,6 @@
         }
 
         function enemyTurn(currentUnit) {
-            // Проверяем, не оглушен ли юнит
-            if (currentUnit.stunned) {
-                logAction(`💫 ${currentUnit.type} ${currentUnit.name} оглушен и пропускает ход`);
-                endTurn();
-                return;
-            }
-
-            // Проверяем, не в ловушке ли юнит
-            if (currentUnit.trapped) {
-                logAction(`🧝 ${currentUnit.type} ${currentUnit.name} в ловушке и не может двигаться`);
-                endTurn();
-                return;
-            }
-
             const targets = [...units.player];
             if(targets.length === 0) return;
 
@@ -1358,13 +1236,9 @@
 
         function showUnitInfo(unit, isEnemy = false) {
             const infoDiv = document.getElementById('unit-info');
-            const currentUnit = turnQueue[currentUnitIndex];
-            const isActiveUnit = unit === currentUnit && units.player.includes(unit);
-            
             let html = `
                 <div style="font-size: 1.2em; margin-bottom: 10px;">
                     <strong>${unit.type} ${unit.name}</strong>
-                    ${isActiveUnit ? ' (Активный)' : ''}
                 </div>
                 <div class="unit-stats">
                     <div>❤️ HP: ${unit.hp}</div>
@@ -1373,28 +1247,12 @@
                     <div>📏 Дальность: ${unit.range || 1}</div>
                 </div>`;
 
-            // Показываем активные эффекты
-            const effects = [];
-            if (unit.protectedBy) effects.push(`🛡️ Под защитой ${unit.protectedBy.type} ${unit.protectedBy.name}`);
-            if (unit.rageActive) effects.push('⚔️ В ярости');
-            if (unit.stunned) effects.push('💫 Оглушен');
-            if (unit.trapped) effects.push('🧝 В ловушке');
-            if (unit.invisible) effects.push('🗡️ Невидим');
-            if (unit.inspired) effects.push('🎭 Воодушевлен');
-            
-            if (effects.length > 0) {
-                html += `<div class="unit-effects">
-                    <div style="font-weight: bold; margin-top: 10px;">Активные эффекты:</div>
-                    ${effects.map(effect => `<div>${effect}</div>`).join('')}
-                </div>`;
-            }
-
             if (!isEnemy && unit.activeAbility) {
                 html += `
                     <div class="unit-ability">
                         <div class="ability-name">✨ ${unit.activeAbility.name}</div>
                         <div class="ability-description">${unit.activeAbility.description}</div>
-                        <div class="cooldown-info">⏱️ Перезарядка: ${unit.cooldowns?.special || 0}/${unit.activeAbility.cooldown} хода</div>
+                        <div class="cooldown-info">⏱️ Перезарядка: ${unit.activeAbility.cooldown} хода</div>
                     </div>`;
             }
 
@@ -1406,8 +1264,7 @@
                     </div>`;
             }
 
-            // Показываем кнопки действий только для активного юнита игрока
-            if (isActiveUnit) {
+            if (!isEnemy) {
                 html += `
                     <div class="action-buttons">
                         <button class="action-button ${currentAction === 'move' ? 'active' : ''}" 
@@ -1492,49 +1349,6 @@
             }
 
             switch(unit.type) {
-                case '🛡️': // Рыцарь - Щитовая стена
-                    const protectedAlly = units.player.find(p => p.x === targetX && p.y === targetY);
-                    if (protectedAlly && protectedAlly !== unit) {
-                        protectedAlly.protectedBy = unit;
-                        protectedAlly.protectionDuration = 2;
-                        logAction(`🛡️ ${unit.type} ${unit.name} защищает ${protectedAlly.type} ${protectedAlly.name}`);
-                        unit.cooldowns.special = unit.activeAbility.cooldown;
-                    }
-                    break;
-
-                case '⚔️': // Берсерк - Ярость
-                    unit.rageActive = true;
-                    unit.rageDuration = 2;
-                    unit.originalAttack = unit.attack;
-                    unit.attack *= 2;
-                    logAction(`⚔️ ${unit.type} ${unit.name} впадает в ярость! Атака удвоена!`);
-                    unit.cooldowns.special = unit.activeAbility.cooldown;
-                    break;
-
-                case '🦅': // Грифон - Воздушный удар
-                    const targetEnemy = units.enemy.find(e => e.x === targetX && e.y === targetY);
-                    if (targetEnemy) {
-                        // Сохраняем текущую позицию
-                        const originalX = unit.x;
-                        const originalY = unit.y;
-                        
-                        // Перемещаемся за врага
-                        const behindX = targetEnemy.x + (targetEnemy.x - originalX);
-                        const behindY = targetEnemy.y + (targetEnemy.y - originalY);
-                        
-                        if (isValidCell({x: behindX, y: behindY})) {
-                            moveUnit(unit, behindX, behindY);
-                            // Оглушаем цель
-                            targetEnemy.stunned = true;
-                            targetEnemy.stunDuration = 1;
-                            // Атакуем с двойной силой
-                            attack(unit, targetEnemy, unit.attack * 2);
-                            logAction(`🦅 ${unit.type} ${unit.name} выполняет воздушный удар!`);
-                            unit.cooldowns.special = unit.activeAbility.cooldown;
-                        }
-                    }
-                    break;
-
                 case '🧙': // Маг - Огненный шар
                     const enemyMage = units.enemy.find(e => e.x === targetX && e.y === targetY);
                     if (enemyMage) {
@@ -1591,87 +1405,6 @@
                     lineTargets.forEach(target => {
                         attack(unit, target, unit.attack * 1.3);
                     });
-                    unit.cooldowns.special = unit.activeAbility.cooldown;
-                    break;
-
-                case '🧝': // Следопыт - Ловушка
-                    const trapTarget = units.enemy.find(e => e.x === targetX && e.y === targetY);
-                    if (trapTarget) {
-                        trapTarget.trapped = true;
-                        trapTarget.trapDuration = 2;
-                        logAction(`🧝 ${unit.type} ${unit.name} устанавливает ловушку для ${trapTarget.type} ${trapTarget.name}`);
-                        unit.cooldowns.special = unit.activeAbility.cooldown;
-                    }
-                    break;
-
-                case '⚡': // Шаман - Цепная молния
-                    const primaryTarget = units.enemy.find(e => e.x === targetX && e.y === targetY);
-                    if (primaryTarget) {
-                        // Наносим урон основной цели
-                        attack(unit, primaryTarget, unit.attack * 1.2);
-                        
-                        // Находим двух ближайших врагов
-                        const otherTargets = units.enemy
-                            .filter(e => e !== primaryTarget)
-                            .sort((a, b) => {
-                                const distA = Math.abs(a.x - primaryTarget.x) + Math.abs(a.y - primaryTarget.y);
-                                const distB = Math.abs(b.x - primaryTarget.x) + Math.abs(b.y - primaryTarget.y);
-                                return distA - distB;
-                            })
-                            .slice(0, 2);
-                        
-                        // Наносим урон дополнительным целям
-                        otherTargets.forEach(target => {
-                            attack(unit, target, unit.attack * 0.8);
-                        });
-                        
-                        logAction(`⚡ ${unit.type} ${unit.name} запускает цепную молнию!`);
-                        unit.cooldowns.special = unit.activeAbility.cooldown;
-                    }
-                    break;
-
-                case '🗡️': // Ассасин - Теневой прыжок
-                    const assassinTarget = units.enemy.find(e => e.x === targetX && e.y === targetY);
-                    if (assassinTarget) {
-                        // Сохраняем текущую позицию
-                        const originalX = unit.x;
-                        const originalY = unit.y;
-                        
-                        // Перемещаемся за врага
-                        const behindX = assassinTarget.x + (assassinTarget.x - originalX);
-                        const behindY = assassinTarget.y + (assassinTarget.y - originalY);
-                        
-                        if (isValidCell({x: behindX, y: behindY})) {
-                            moveUnit(unit, behindX, behindY);
-                            // Атакуем с критическим уроном
-                            attack(unit, assassinTarget, unit.attack * 2.5);
-                            // Становимся невидимым
-                            unit.invisible = true;
-                            unit.invisibilityDuration = 1;
-                            logAction(`🗡️ ${unit.type} ${unit.name} выполняет теневой прыжок!`);
-                            unit.cooldowns.special = unit.activeAbility.cooldown;
-                        }
-                    }
-                    break;
-
-                case '🎭': // Менестрель - Воодушевляющая песня
-                    const affectedAllies = units.player.filter(p => 
-                        Math.abs(p.x - targetX) <= unit.activeAbility.range && 
-                        Math.abs(p.y - targetY) <= unit.activeAbility.range
-                    );
-                    
-                    affectedAllies.forEach(ally => {
-                        if (ally !== unit) {
-                            ally.inspired = true;
-                            ally.inspirationDuration = 2;
-                            ally.originalAttack = ally.attack;
-                            ally.originalInitiative = ally.initiative;
-                            ally.attack += 5;
-                            ally.initiative += 3;
-                            logAction(`🎭 ${unit.type} ${unit.name} воодушевляет ${ally.type} ${ally.name}!`);
-                        }
-                    });
-                    
                     unit.cooldowns.special = unit.activeAbility.cooldown;
                     break;
             }
