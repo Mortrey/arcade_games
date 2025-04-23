@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donkey Kong Style Arcade Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #game-container {
+            position: relative;
+            width: 640px;
+            height: 480px;
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5), 0 0 40px rgba(0, 255, 0, 0.3);
+            overflow: hidden;
+        }
+
+        #game-board {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #87CEEB, #1E90FF);
+        }
+
+        #score-display {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        #lives-display {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 20px;
+            color: #FF6347;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        #level-display {
+            position: absolute;
+            top: 40px;
+            left: 10px;
+            font-size: 16px;
+            color: #7FFF00;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        #message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 3px solid #FFD700;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 100;
+            display: none;
+        }
+
+        #message-box h2 {
+            color: #FFD700;
+            margin-top: 0;
+        }
+
+        #message-box p {
+            margin-bottom: 20px;
+        }
+
+        #start-button, #restart-button {
+            background-color: #FF6347;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        #start-button:hover, #restart-button:hover {
+            background-color: #FF0000;
+            transform: scale(1.05);
+        }
+
+        .platform {
+            position: absolute;
+            background-color: #8B4513;
+            height: 12px;
+            border-radius: 4px;
+        }
+
+        .barrel {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: #8B4513;
+            border-radius: 10px;
+            z-index: 5;
+            animation: barrelRoll 0.5s linear infinite;
+        }
+
+        .climbing-ladder {
+            position: absolute;
+            background-color: #8B4513;
+            width: 20px;
+            z-index: 1;
+        }
+
+        #player {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+            z-index: 10;
+            transition: transform 0.1s;
+        }
+
+        #donkey {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            z-index: 5;
+        }
+
+        .barrel {
+            animation: barrelRoll 0.5s linear infinite;
+        }
+
+        @keyframes barrelRoll {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .player-facing-right {
+            transform: scaleX(-1);
+        }
+
+        .player-facing-left {
+            transform: scaleX(1);
+        }
+
+        .player-running {
+            animation: playerRun 0.3s steps(4) infinite;
+        }
+
+        @keyframes playerRun {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0); }
+        }
+
+        .coin {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 15px;
+            z-index: 2;
+            animation: coinSpin 1s linear infinite;
+        }
+
+        @keyframes coinSpin {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .explosion {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, #FFD700, #FF6347, #FF0000);
+            border-radius: 50%;
+            z-index: 15;
+            animation: explode 0.5s forwards;
+        }
+
+        @keyframes explode {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        #controls-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 12px;
+            color: #AAA;
+        }
+
+        .brick {
+            position: absolute;
+            background-color: #8B4513;
+            width: 30px;
+            height: 30px;
+            border: 2px solid #A0522D;
+        }
+
+        .banana {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            z-index: 5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            background: none; /* Убираем желтый фон */
+        }
+
+        @keyframes bananaRoll {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .banana {
+            animation: bananaRoll 0.5s linear infinite;
+        }
+
+        .victory-flag {
+            position: absolute;
+            font-size: 30px;
+            z-index: 1;
+        }
+
+        .victory-flag::after {
+            content: "🏁";
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .grass {
+            position: absolute;
+            width: 30px;
+            height: 20px;
+            bottom: 30px;
+            font-size: 20px;
+            z-index: 2;
+        }
+
+        .palm {
+            position: absolute;
+            font-size: 40px;
+            z-index: 1;
+            bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="game-board">
+            <div id="score-display">Score: 0</div>
+            <div id="lives-display">Lives: 3</div>
+            <div id="level-display">Level: 1</div>
+            <div id="player">🚶</div>
+            <div id="donkey">🦍</div>
+            <div id="controls-info">Controls: ← → to move, SPACE to jump, ↑↓ to climb</div>
+        </div>
+        <div id="message-box">
+            <h2>Donkey Kong</h2>
+            <p>Help Mario climb to safety while avoiding bananas!</p>
+            <button id="start-button">Start Game</button>
+            <button id="restart-button" style="display: none;">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Game variables
+        const gameBoard = document.getElementById('game-board');
+        const player = document.getElementById('player');
+        const donkey = document.getElementById('donkey');
+        const scoreDisplay = document.getElementById('score-display');
+        const livesDisplay = document.getElementById('lives-display');
+        const levelDisplay = document.getElementById('level-display');
+        const messageBox = document.getElementById('message-box');
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+
+        let score = 0;
+        let lives = 3;
+        let level = 1;
+        let gameRunning = false;
+        let playerX = 50;
+        let playerY = 400;
+        let playerVelocityY = 0;
+        let playerVelocityX = 0;
+        let isJumping = false;
+        let isClimbing = false;
+        let currentLadder = null;
+        let gravity = 0.5;
+        let barrels = [];
+        let coins = [];
+        let platforms = [];
+        let ladders = [];
+        let keysPressed = {};
+        let barrelSpeed = 2;
+        let barrelSpawnRate = 3000; // milliseconds
+        let barrelSpawnTimer;
+        let gameLoop;
+        let lastBarrelTargetX = 0;
+        let allCoinsCollected = false;
+        let victoryFlag = null;
+        let playerDirection = 'left';
+        let playerIsInvulnerable = false;
+        let playerOpacity = 1;
+        let idleTimer = null;
+        let isIdle = false;
+
+        // Initialize game
+        function initGame() {
+            // Reset game state
+            score = 0;
+            lives = 3;
+            level = 1;
+            playerX = 50;
+            playerY = 400;
+            playerVelocityY = 0;
+            playerVelocityX = 0;
+            isJumping = false;
+            isClimbing = false;
+            playerIsInvulnerable = false;
+            playerOpacity = 1;
+            barrels = [];
+            coins = [];
+            platforms = [];
+            ladders = [];
+            barrelSpeed = 2;
+            barrelSpawnRate = 3000;
+            allCoinsCollected = false;
+            isIdle = false;
+            clearTimeout(idleTimer);
+            
+            // Clear existing elements
+            clearGameElements();
+
+            // Update displays
+            updateScoreDisplay();
+            updateLivesDisplay();
+            updateLevelDisplay();
+
+            // Set player position
+            player.style.left = playerX + 'px';
+            player.style.top = playerY + 'px';
+            player.textContent = '🚶';
+            player.style.opacity = playerOpacity;
+
+            // Position Donkey Kong
+            donkey.style.left = '520px';
+            donkey.style.top = '90px';
+            donkey.textContent = '🦍';
+
+            // Create level
+            createLevel();
+
+            // Show start message
+            messageBox.style.display = 'block';
+            startButton.style.display = 'block';
+            restartButton.style.display = 'none';
+        }
+
+        function clearGameElements() {
+            // Remove all barrels, coins, platforms, ladders, and victory flag
+            document.querySelectorAll('.barrel, .banana, .coin, .platform, .climbing-ladder, .brick, .victory-flag').forEach(el => el.remove());
+        }
+
+        function createLevel() {
+            // Create ground platform
+            createPlatform(0, 450, 640, 30);
+            
+            // Создаем траву
+            for (let i = 0; i < 15; i++) {
+                const grass = document.createElement('div');
+                grass.className = 'grass';
+                grass.textContent = '🌿';
+                grass.style.left = (i * 45) + 'px';
+                grass.style.bottom = '30px';
+                gameBoard.appendChild(grass);
+            }
+            
+            // Создаем пальмы на заднем фоне
+            const palmPositions = [50, 200, 400, 550];
+            palmPositions.forEach(x => {
+                const palm = document.createElement('div');
+                palm.className = 'palm';
+                palm.textContent = '🌴';
+                palm.style.left = x + 'px';
+                gameBoard.appendChild(palm);
+            });
+
+            // Платформа для Донки Конга
+            createPlatform(500, 150, 100, 12);
+            // Создаем несколько кирпичей под платформой Конга для визуального эффекта
+            for (let i = 0; i < 4; i++) {
+                createBrick(500 + i * 30, 120);
+            }
+
+            // Create platforms
+            createPlatform(100, 380, 150, 12);
+            createPlatform(300, 320, 150, 12);
+            createPlatform(100, 260, 150, 12);
+            createPlatform(300, 200, 150, 12);
+            createPlatform(100, 140, 150, 12);
+
+            // Create ladders
+            createLadder(150, 380, 100);
+            createLadder(350, 320, 100);
+            createLadder(150, 260, 100);
+            createLadder(350, 200, 100);
+            createLadder(150, 140, 100);
+
+            // Create coins
+            createCoin(175, 350);
+            createCoin(375, 290);
+            createCoin(175, 230);
+            createCoin(375, 170);
+            createCoin(175, 110);
+
+            // Create victory flag at the top
+            victoryFlag = document.createElement('div');
+            victoryFlag.className = 'victory-flag';
+            victoryFlag.textContent = '🏁';
+            victoryFlag.style.left = '135px';
+            victoryFlag.style.top = '100px';
+            gameBoard.appendChild(victoryFlag);
+        }
+
+        function createPlatform(x, y, width, height) {
+            const platform = document.createElement('div');
+            platform.className = 'platform';
+            platform.style.left = x + 'px';
+            platform.style.top = y + 'px';
+            platform.style.width = width + 'px';
+            platform.style.height = height + 'px';
+            gameBoard.appendChild(platform);
+            platforms.push({
+                element: platform,
+                x: x,
+                y: y,
+                width: width,
+                height: height
+            });
+        }
+
+        function createLadder(x, y, height) {
+            const ladder = document.createElement('div');
+            ladder.className = 'climbing-ladder';
+            ladder.style.left = x + 'px';
+            ladder.style.top = y + 'px';
+            ladder.style.height = height + 'px';
+            gameBoard.appendChild(ladder);
+            ladders.push({
+                element: ladder,
+                x: x,
+                y: y,
+                width: 20,
+                height: height
+            });
+        }
+
+        function createCoin(x, y) {
+            const coin = document.createElement('div');
+            coin.className = 'coin';
+            coin.textContent = '💰';
+            coin.style.left = x + 'px';
+            coin.style.top = y + 'px';
+            gameBoard.appendChild(coin);
+            coins.push({
+                element: coin,
+                x: x,
+                y: y,
+                width: 15,
+                height: 15,
+                collected: false
+            });
+        }
+
+        function createBrick(x, y) {
+            const brick = document.createElement('div');
+            brick.className = 'brick';
+            brick.style.left = x + 'px';
+            brick.style.top = y + 'px';
+            gameBoard.appendChild(brick);
+        }
+
+        function spawnBarrel() {
+            if (!gameRunning) return;
+
+            const banana = document.createElement('div');
+            banana.className = 'banana';
+            banana.textContent = '🍌';
+            
+            // Начальная позиция банана (у Донки Конга)
+            const startX = 520;
+            const startY = 90;
+            
+            banana.style.left = startX + 'px';
+            banana.style.top = startY + 'px';
+            gameBoard.appendChild(banana);
+            
+            // Вычисляем направление к игроку
+            const dx = playerX - startX;
+            const dy = playerY - startY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Нормализуем вектор направления
+            const directionX = dx / distance;
+            const directionY = dy / distance;
+            
+            // Скорость банана
+            const speed = 5;
+            
+            barrels.push({
+                element: banana,
+                x: startX,
+                y: startY,
+                width: 20,
+                height: 20,
+                velocityX: directionX * speed,
+                velocityY: directionY * speed,
+                targetX: playerX,
+                targetY: playerY
+            });
+
+            // Schedule next barrel
+            barrelSpawnTimer = setTimeout(spawnBarrel, barrelSpawnRate);
+        }
+
+        function updateScoreDisplay() {
+            scoreDisplay.textContent = `Score: ${score}`;
+        }
+
+        function updateLivesDisplay() {
+            livesDisplay.textContent = `Lives: ${lives}`;
+        }
+
+        function updateLevelDisplay() {
+            levelDisplay.textContent = `Level: ${level}`;
+        }
+
+        function startGame() {
+            gameRunning = true;
+            messageBox.style.display = 'none';
+            
+            // Устанавливаем начальную частоту бросания бананов в зависимости от уровня
+            barrelSpawnRate = 5000 - (level - 1) * 1000; // Увеличиваем скорость в 2 раза
+            barrelSpawnRate = Math.max(barrelSpawnRate, 1000); // Минимальный интервал 1 секунда
+            
+            // Start spawning barrels
+            spawnBarrel();
+            
+            // Start game loop
+            gameLoop = setInterval(updateGame, 20);
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+
+            // Handle player movement
+            if (keysPressed['ArrowLeft'] && !isClimbing) {
+                playerVelocityX = -3;
+                player.style.transform = 'scaleX(1)';
+                playerDirection = 'left';
+                player.textContent = '🚶';
+                isIdle = false;
+                clearTimeout(idleTimer);
+            } else if (keysPressed['ArrowRight'] && !isClimbing) {
+                playerVelocityX = 3;
+                player.style.transform = 'scaleX(-1)';
+                playerDirection = 'right';
+                player.textContent = '🚶';
+                isIdle = false;
+                clearTimeout(idleTimer);
+            } else if (!isClimbing) {
+                playerVelocityX = 0;
+                if (!isIdle) {
+                    // Запускаем таймер для переключения на эмодзи стоящего игрока
+                    idleTimer = setTimeout(() => {
+                        player.textContent = '🧍‍♂️';
+                        isIdle = true;
+                    }, 100);
+                }
+            }
+
+            // Handle jumping with space bar
+            if (keysPressed[' '] && !isJumping && !isClimbing) {
+                playerVelocityY = -10;
+                isJumping = true;
+            }
+
+            // Handle climbing
+            if (isClimbing) {
+                if (keysPressed['ArrowUp']) {
+                    playerVelocityY = -3;
+                } else if (keysPressed['ArrowDown']) {
+                    playerVelocityY = 3;
+                } else {
+                    playerVelocityY = 0;
+                }
+            } else {
+                // Apply gravity if not climbing
+                playerVelocityY += gravity;
+            }
+
+            // Update player position
+            playerX += playerVelocityX;
+            playerY += playerVelocityY;
+
+            // Boundary checks
+            if (playerX < 0) playerX = 0;
+            if (playerX > 600) playerX = 600;
+            
+            // Check if player fell off the bottom
+            if (playerY > 480) {
+                playerDeath();
+                return;
+            }
+
+            // Check platform collisions
+            let onPlatform = false;
+            for (let platform of platforms) {
+                if (playerY + 40 >= platform.y && 
+                    playerY + 40 <= platform.y + 10 && 
+                    playerX + 30 > platform.x && 
+                    playerX < platform.x + platform.width && 
+                    playerVelocityY > 0) {
+                    playerY = platform.y - 40;
+                    playerVelocityY = 0;
+                    isJumping = false;
+                    onPlatform = true;
+                    break;
+                }
+            }
+
+            // Check ladder collisions
+            isClimbing = false;
+            currentLadder = null;
+            for (let ladder of ladders) {
+                if (playerX + 30 > ladder.x && 
+                    playerX < ladder.x + ladder.width && 
+                    playerY + 40 > ladder.y && 
+                    playerY < ladder.y + ladder.height) {
+                    isClimbing = true;
+                    currentLadder = ladder;
+                    break;
+                }
+            }
+
+            // Update player position
+            player.style.left = playerX + 'px';
+            player.style.top = playerY + 'px';
+
+            // Update barrels
+            updateBarrels();
+
+            // Check coin collisions
+            checkCoinCollisions();
+
+            // Check if player reached the victory flag
+            if (playerY < 120 && playerX > 100 && playerX < 140) {
+                if (allCoinsCollected) {
+                    levelComplete();
+                } else {
+                    // Показываем сообщение, что нужно собрать все монеты
+                    const message = document.createElement('div');
+                    message.style.position = 'absolute';
+                    message.style.left = '50%';
+                    message.style.top = '30%';
+                    message.style.transform = 'translate(-50%, -50%)';
+                    message.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+                    message.style.color = '#FFD700';
+                    message.style.padding = '10px';
+                    message.style.borderRadius = '5px';
+                    message.style.fontSize = '16px';
+                    message.textContent = 'Соберите все монеты! 💰';
+                    message.style.zIndex = '100';
+                    gameBoard.appendChild(message);
+                    
+                    // Удаляем сообщение через 2 секунды
+                    setTimeout(() => {
+                        message.remove();
+                    }, 2000);
+                }
+            }
+        }
+
+        function updateBarrels() {
+            for (let i = barrels.length - 1; i >= 0; i--) {
+                const barrel = barrels[i];
+                
+                // Update barrel position
+                barrel.x += barrel.velocityX;
+                barrel.y += barrel.velocityY;
+                
+                // Check if barrel is out of bounds
+                if (barrel.x < -20 || barrel.x > 640 || barrel.y > 480 || barrel.y < -20) {
+                    barrel.element.remove();
+                    barrels.splice(i, 1);
+                    continue;
+                }
+                
+                // Check collision with player
+                if (!playerIsInvulnerable && 
+                    barrel.x + 20 > playerX && 
+                    barrel.x < playerX + 30 && 
+                    barrel.y + 20 > playerY && 
+                    barrel.y < playerY + 40) {
+                    barrel.element.remove();
+                    barrels.splice(i, 1);
+                    playerDeath();
+                    break;
+                }
+                
+                // Update barrel position
+                barrel.element.style.left = barrel.x + 'px';
+                barrel.element.style.top = barrel.y + 'px';
+            }
+        }
+
+        function checkCoinCollisions() {
+            allCoinsCollected = true; // Предполагаем, что все монеты собраны
+            let collectedCoinsCount = 0;
+            let totalCoins = 0;
+            
+            for (let i = coins.length - 1; i >= 0; i--) {
+                const coin = coins[i];
+                totalCoins++;
+                
+                if (coin.collected) {
+                    collectedCoinsCount++;
+                    continue;
+                }
+                
+                if (playerX + 30 > coin.x && 
+                    playerX < coin.x + coin.width && 
+                    playerY + 40 > coin.y && 
+                    playerY < coin.y + coin.height) {
+                    // Collect coin
+                    coin.collected = true;
+                    coin.element.style.display = 'none';
+                    score += 100;
+                    collectedCoinsCount++;
+                    updateScoreDisplay();
+                    
+                    // Создаем эффект сбора монеты
+                    const collectEffect = document.createElement('div');
+                    collectEffect.textContent = '+100';
+                    collectEffect.style.position = 'absolute';
+                    collectEffect.style.left = coin.x + 'px';
+                    collectEffect.style.top = (coin.y - 20) + 'px';
+                    collectEffect.style.color = '#FFD700';
+                    collectEffect.style.fontSize = '16px';
+                    collectEffect.style.zIndex = '50';
+                    collectEffect.style.animation = 'floatUp 1s forwards';
+                    gameBoard.appendChild(collectEffect);
+                    
+                    // Удаляем эффект через 1 секунду
+                    setTimeout(() => {
+                        collectEffect.remove();
+                    }, 1000);
+                } else {
+                    allCoinsCollected = false;
+                }
+            }
+            
+            // Обновляем информацию о собранных монетах
+            const coinsInfo = document.getElementById('coins-info') || createCoinsInfo();
+            coinsInfo.textContent = `Монеты: ${collectedCoinsCount}/${totalCoins}`;
+        }
+
+        function createCoinsInfo() {
+            const coinsInfo = document.createElement('div');
+            coinsInfo.id = 'coins-info';
+            coinsInfo.style.position = 'absolute';
+            coinsInfo.style.top = '40px';
+            coinsInfo.style.right = '10px';
+            coinsInfo.style.color = '#FFD700';
+            coinsInfo.style.fontSize = '16px';
+            coinsInfo.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+            gameBoard.appendChild(coinsInfo);
+            return coinsInfo;
+        }
+
+        // Добавляем анимацию для эффекта сбора монет
+        const style = document.createElement('style');
+        style.textContent = `
+        @keyframes floatUp {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-30px);
+                opacity: 0;
+            }
+        }`;
+        document.head.appendChild(style);
+
+        function playerDeath() {
+            if (playerIsInvulnerable) return;
+            
+            // Create explosion effect
+            const explosion = document.createElement('div');
+            explosion.className = 'explosion';
+            explosion.style.left = playerX + 'px';
+            explosion.style.top = playerY + 'px';
+            gameBoard.appendChild(explosion);
+            
+            // Remove explosion after animation
+            setTimeout(() => {
+                explosion.remove();
+            }, 500);
+            
+            lives--;
+            updateLivesDisplay();
+            
+            // Делаем игрока неуязвимым на короткое время
+            playerIsInvulnerable = true;
+            playerOpacity = 0.5; // Визуальный эффект неуязвимости
+            
+            if (lives <= 0) {
+                gameOver();
+            } else {
+                // Reset player position
+                playerX = 50;
+                playerY = 400;
+                playerVelocityY = 0;
+                playerVelocityX = 0;
+                player.style.left = playerX + 'px';
+                player.style.top = playerY + 'px';
+                player.textContent = '🧍‍♂️';
+                isIdle = true;
+                
+                // Убираем неуязвимость через 2 секунды
+                setTimeout(() => {
+                    playerIsInvulnerable = false;
+                    playerOpacity = 1;
+                }, 2000);
+            }
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            clearInterval(gameLoop);
+            clearTimeout(barrelSpawnTimer);
+            
+            messageBox.style.display = 'block';
+            startButton.style.display = 'none';
+            restartButton.style.display = 'block';
+            restartButton.textContent = 'Play Again';
+            
+            document.querySelector('#message-box h2').textContent = 'Game Over';
+            document.querySelector('#message-box p').textContent = `Your final score: ${score}`;
+        }
+
+        function levelComplete() {
+            gameRunning = false;
+            clearInterval(gameLoop);
+            clearTimeout(barrelSpawnTimer);
+            
+            level++;
+            updateLevelDisplay();
+            
+            // Увеличиваем сложность
+            barrelSpeed += 1; // Увеличиваем скорость бананов сильнее
+            barrelSpawnRate = Math.max(1000, 5000 - (level - 1) * 1000); // Обновляем частоту бросания
+            
+            messageBox.style.display = 'block';
+            startButton.style.display = 'none';
+            restartButton.style.display = 'block';
+            restartButton.textContent = 'Next Level';
+            
+            document.querySelector('#message-box h2').textContent = 'Level Complete!';
+            document.querySelector('#message-box p').textContent = `Get ready for level ${level}!`;
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            keysPressed[e.key] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keysPressed[e.key] = false;
+        });
+
+        startButton.addEventListener('click', () => {
+            if (!gameRunning) {
+                startGame();
+            }
+        });
+
+        restartButton.addEventListener('click', () => {
+            if (restartButton.textContent === 'Play Again') {
+                initGame();
+            } else {
+                // Clear existing elements
+                clearGameElements();
+                
+                // Reset player position
+                playerX = 50;
+                playerY = 400;
+                playerVelocityY = 0;
+                playerVelocityX = 0;
+                player.style.left = playerX + 'px';
+                player.style.top = playerY + 'px';
+                player.textContent = '🚶';
+                player.style.opacity = 1;
+                
+                // Create level
+                createLevel();
+                
+                // Hide message box
+                messageBox.style.display = 'none';
+                
+                // Start game
+                gameRunning = true;
+                spawnBarrel();
+                gameLoop = setInterval(updateGame, 20);
+            }
+        });
+
+        // Initialize the game
+        initGame();
+    </script>
+</body>
+</html>

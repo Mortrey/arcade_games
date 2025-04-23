@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Solar System</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Arial', sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 300px;
+            z-index: 100;
+            transition: opacity 0.5s;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+        #planetInfo {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 300px;
+            z-index: 100;
+            display: none;
+        }
+        button {
+            background-color: #4a4a4a;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #666;
+        }
+        .slider-container {
+            margin: 10px 0;
+        }
+        .slider-container label {
+            display: inline-block;
+            width: 120px;
+        }
+        input[type="range"] {
+            width: 150px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h2>Solar System Explorer</h2>
+        <p>Navigate through our solar system using your mouse or touch:</p>
+        <p>• Click and drag to rotate</p>
+        <p>• Scroll to zoom in/out</p>
+        <p>• Click on a planet to learn more</p>
+    </div>
+    
+    <div id="planetInfo">
+        <h2 id="planetName"></h2>
+        <p id="planetDesc"></p>
+        <p id="planetStats"></p>
+    </div>
+    
+    <div id="controls">
+        <div class="slider-container">
+            <label for="speedSlider">Orbital Speed:</label>
+            <input type="range" id="speedSlider" min="0" max="5" step="0.1" value="1">
+            <span id="speedValue">1x</span>
+        </div>
+        <div class="slider-container">
+            <label for="scaleSlider">Planet Size:</label>
+            <input type="range" id="scaleSlider" min="1" max="20" step="0.5" value="3">
+            <span id="scaleValue">3x</span>
+        </div>
+        <button id="toggleOrbits">Hide Orbits</button>
+        <button id="toggleLabels">Hide Labels</button>
+        <button id="resetCamera">Reset View</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <script>
+        // Solar System Data
+        const solarSystemData = {
+            sun: {
+                name: "Sun",
+                radius: 696340, // km
+                scaledRadius: 5,
+                color: 0xffff00,
+                emissive: 0xffff00,
+                description: "The Sun is the star at the center of the Solar System. It's a nearly perfect sphere of hot plasma, heated to incandescence by nuclear fusion reactions in its core.",
+                stats: "Diameter: 1,392,684 km\nMass: 1.989 × 10^30 kg\nSurface Temperature: 5,500°C"
+            },
+            mercury: {
+                name: "Mercury",
+                radius: 2439.7,
+                scaledRadius: 0.4,
+                distance: 57.9, // million km
+                orbitPeriod: 88, // days
+                rotationPeriod: 58.6, // days
+                color: 0x8a8a8a,
+                description: "Mercury is the smallest and innermost planet in the Solar System. It has no atmosphere to retain heat, causing extreme temperature variations.",
+                stats: "Diameter: 4,879 km\nOrbital Period: 88 days\nSurface Temperature: -173°C to 427°C"
+            },
+            venus: {
+                name: "Venus",
+                radius: 6051.8,
+                scaledRadius: 0.9,
+                distance: 108.2,
+                orbitPeriod: 224.7,
+                rotationPeriod: 243,
+                color: 0xe39e1c,
+                description: "Venus is the second planet from the Sun. It has the densest atmosphere of all terrestrial planets, consisting mainly of carbon dioxide.",
+                stats: "Diameter: 12,104 km\nOrbital Period: 225 days\nSurface Temperature: 462°C"
+            },
+            earth: {
+                name: "Earth",
+                radius: 6371,
+                scaledRadius: 1,
+                distance: 149.6,
+                orbitPeriod: 365.2,
+                rotationPeriod: 1,
+                color: 0x2b82bd,
+                description: "Earth is the third planet from the Sun and the only astronomical object known to harbor life. It has one natural satellite, the Moon.",
+                stats: "Diameter: 12,742 km\nOrbital Period: 365.25 days\nSurface Temperature: -88°C to 58°C"
+            },
+            mars: {
+                name: "Mars",
+                radius: 3389.5,
+                scaledRadius: 0.5,
+                distance: 227.9,
+                orbitPeriod: 687,
+                rotationPeriod: 1.03,
+                color: 0xc1440e,
+                description: "Mars is the fourth planet from the Sun. It's often called the 'Red Planet' due to its reddish appearance, caused by iron oxide on its surface.",
+                stats: "Diameter: 6,779 km\nOrbital Period: 687 days\nSurface Temperature: -153°C to 20°C"
+            },
+            jupiter: {
+                name: "Jupiter",
+                radius: 69911,
+                scaledRadius: 2.5,
+                distance: 778.5,
+                orbitPeriod: 4331,
+                rotationPeriod: 0.41,
+                color: 0xd7874a, // Changed to more reddish-orange
+                description: "Jupiter is the fifth planet from the Sun and the largest in the Solar System. It's a gas giant with a mass more than two and a half times that of all other planets combined.",
+                stats: "Diameter: 139,820 km\nOrbital Period: 11.86 years\nSurface Temperature: -145°C"
+            },
+            saturn: {
+                name: "Saturn",
+                radius: 58232,
+                scaledRadius: 2.2,
+                distance: 1434,
+                orbitPeriod: 10747,
+                rotationPeriod: 0.45,
+                color: 0xead6b8,
+                description: "Saturn is the sixth planet from the Sun and the second-largest in the Solar System, after Jupiter. It's known for its prominent ring system.",
+                stats: "Diameter: 116,460 km\nOrbital Period: 29.46 years\nSurface Temperature: -178°C"
+            },
+            uranus: {
+                name: "Uranus",
+                radius: 25362,
+                scaledRadius: 1.8,
+                distance: 2871,
+                orbitPeriod: 30589,
+                rotationPeriod: 0.72,
+                color: 0x91eaeb,
+                description: "Uranus is the seventh planet from the Sun. It has the third-largest planetary radius and fourth-largest planetary mass in the Solar System.",
+                stats: "Diameter: 50,724 km\nOrbital Period: 84 years\nSurface Temperature: -224°C"
+            },
+            neptune: {
+                name: "Neptune",
+                radius: 24622,
+                scaledRadius: 1.8,
+                distance: 4495,
+                orbitPeriod: 59800,
+                rotationPeriod: 0.67,
+                color: 0x3457eb,
+                description: "Neptune is the eighth and farthest known planet from the Sun. It's the fourth-largest planet by diameter and the third-most-massive.",
+                stats: "Diameter: 49,244 km\nOrbital Period: 164.8 years\nSurface Temperature: -218°C"
+            }
+        };
+
+        // Initialize Three.js scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Add ambient light
+        const ambientLight = new THREE.AmbientLight(0x333333);
+        scene.add(ambientLight);
+
+        // Add point light at sun's position
+        const sunLight = new THREE.PointLight(0xffffff, 2, 1000);
+        sunLight.position.set(0, 0, 0);
+        scene.add(sunLight);
+
+        // Add stars background
+        const starsGeometry = new THREE.BufferGeometry();
+        const starsMaterial = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 1,
+            sizeAttenuation: false
+        });
+
+        const starsVertices = [];
+        for (let i = 0; i < 10000; i++) {
+            const x = THREE.MathUtils.randFloatSpread(2000);
+            const y = THREE.MathUtils.randFloatSpread(2000);
+            const z = THREE.MathUtils.randFloatSpread(2000);
+            starsVertices.push(x, y, z);
+        }
+
+        starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+        const stars = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(stars);
+
+        // Create sun
+        const sunGeometry = new THREE.SphereGeometry(solarSystemData.sun.scaledRadius, 64, 64);
+        const sunMaterial = new THREE.MeshBasicMaterial({
+            color: solarSystemData.sun.color,
+            emissive: solarSystemData.sun.emissive
+        });
+        const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+        scene.add(sun);
+
+        // Create planets, orbits, and labels
+        const planets = {};
+        const orbits = {};
+        const labels = {};
+        const planetGroup = new THREE.Group();
+        scene.add(planetGroup);
+
+        // Scale factor for distances (to fit in view)
+        let distanceScale = 10;
+        let sizeScale = 3;
+        let speedScale = 1;
+
+        // Create planets
+        for (const [key, planet] of Object.entries(solarSystemData)) {
+            if (key === 'sun') continue;
+
+            // Create orbit
+            const orbitGeometry = new THREE.RingGeometry(
+                planet.distance / distanceScale,
+                planet.distance / distanceScale + 0.1,
+                128
+            );
+            const orbitMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.3
+            });
+            const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial);
+            orbit.rotation.x = Math.PI / 2;
+            planetGroup.add(orbit);
+            orbits[key] = orbit;
+
+            // Create planet
+            const planetGeometry = new THREE.SphereGeometry(planet.scaledRadius * sizeScale / 100, 32, 32);
+            const planetMaterial = new THREE.MeshLambertMaterial({ color: planet.color });
+            const planetMesh = new THREE.Mesh(planetGeometry, planetMaterial);
+            
+            // Position planet
+            const angle = Math.random() * Math.PI * 2;
+            planetMesh.position.x = Math.cos(angle) * (planet.distance / distanceScale);
+            planetMesh.position.z = Math.sin(angle) * (planet.distance / distanceScale);
+            
+            planetGroup.add(planetMesh);
+            planets[key] = {
+                mesh: planetMesh,
+                angle: angle,
+                data: planet
+            };
+
+            // Create label
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'planet-label';
+            labelDiv.textContent = planet.name;
+            labelDiv.style.position = 'absolute';
+            labelDiv.style.color = 'white';
+            labelDiv.style.fontSize = '12px';
+            labelDiv.style.fontWeight = 'bold';
+            labelDiv.style.textShadow = '0 0 3px black';
+            labelDiv.style.pointerEvents = 'none';
+            document.body.appendChild(labelDiv);
+            labels[key] = labelDiv;
+        }
+
+        // Create Saturn's rings - will be updated with proper scaling
+        const saturnRings = new THREE.Group();
+        planetGroup.add(saturnRings);
+
+        // Function to update Saturn's rings based on current size scale
+        function updateSaturnRings() {
+            // Clear existing rings
+            while(saturnRings.children.length > 0) {
+                saturnRings.remove(saturnRings.children[0]);
+            }
+            
+            // Get Saturn's current scale
+            const saturnScale = planets.saturn.mesh.scale.x;
+            
+            // Create rings with proper proportions
+            const innerRadius = 0.1 * saturnScale;
+            const outerRadius = 0.4 * saturnScale;
+            
+            // Main ring
+            const ringGeometry = new THREE.RingGeometry(innerRadius, outerRadius, 64);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: 0xc2b280,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.8
+            });
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.rotation.x = Math.PI / 2;
+            saturnRings.add(ring);
+            
+            // Add some detail rings
+            const detailRing1 = new THREE.Mesh(
+                new THREE.RingGeometry(innerRadius * 0.8, innerRadius * 0.9, 64),
+                new THREE.MeshBasicMaterial({
+                    color: 0xd8c9a8,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.6
+                })
+            );
+            detailRing1.rotation.x = Math.PI / 2;
+            saturnRings.add(detailRing1);
+            
+            const detailRing2 = new THREE.Mesh(
+                new THREE.RingGeometry(outerRadius * 0.9, outerRadius * 0.95, 64),
+                new THREE.MeshBasicMaterial({
+                    color: 0xb5a574,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.6
+                })
+            );
+            detailRing2.rotation.x = Math.PI / 2;
+            saturnRings.add(detailRing2);
+        }
+
+        // Initialize Saturn's rings
+        updateSaturnRings();
+
+        // Set up camera and controls
+        camera.position.set(0, 50, 100);
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 20;
+        controls.maxDistance = 500;
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Raycaster for planet selection
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // Handle planet clicks
+        window.addEventListener('click', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            const planetMeshes = Object.values(planets).map(p => p.mesh);
+            planetMeshes.push(sun);
+
+            const intersects = raycaster.intersectObjects(planetMeshes);
+
+            if (intersects.length > 0) {
+                const selectedObject = intersects[0].object;
+                
+                // Check if it's the sun
+                if (selectedObject === sun) {
+                    showPlanetInfo(solarSystemData.sun);
+                    return;
+                }
+                
+                // Find which planet was clicked
+                for (const [key, planet] of Object.entries(planets)) {
+                    if (planet.mesh === selectedObject) {
+                        showPlanetInfo(planet.data);
+                        return;
+                    }
+                }
+            } else {
+                hidePlanetInfo();
+            }
+        });
+
+        // Show planet info
+        function showPlanetInfo(planet) {
+            const planetInfo = document.getElementById('planetInfo');
+            document.getElementById('planetName').textContent = planet.name;
+            document.getElementById('planetDesc').textContent = planet.description;
+            document.getElementById('planetStats').textContent = planet.stats;
+            planetInfo.style.display = 'block';
+        }
+
+        // Hide planet info
+        function hidePlanetInfo() {
+            document.getElementById('planetInfo').style.display = 'none';
+        }
+
+        // Control handlers
+        document.getElementById('speedSlider').addEventListener('input', function() {
+            speedScale = parseFloat(this.value);
+            document.getElementById('speedValue').textContent = speedScale.toFixed(1) + 'x';
+        });
+
+        document.getElementById('scaleSlider').addEventListener('input', function() {
+            sizeScale = parseFloat(this.value);
+            document.getElementById('scaleValue').textContent = sizeScale.toFixed(1) + 'x';
+            
+            // Update planet sizes
+            for (const [key, planet] of Object.entries(planets)) {
+                planet.mesh.scale.set(sizeScale, sizeScale, sizeScale);
+            }
+            
+            // Update Saturn's rings when size changes
+            updateSaturnRings();
+        });
+
+        document.getElementById('toggleOrbits').addEventListener('click', function() {
+            const visible = orbitsVisible = !orbitsVisible;
+            for (const orbit of Object.values(orbits)) {
+                orbit.visible = visible;
+            }
+            this.textContent = visible ? 'Hide Orbits' : 'Show Orbits';
+        });
+
+        document.getElementById('toggleLabels').addEventListener('click', function() {
+            const visible = labelsVisible = !labelsVisible;
+            for (const label of Object.entries(labels)) {
+                label.style.display = visible ? 'block' : 'none';
+            }
+            this.textContent = visible ? 'Hide Labels' : 'Show Labels';
+        });
+
+        document.getElementById('resetCamera').addEventListener('click', function() {
+            camera.position.set(0, 50, 100);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        });
+
+        // Animation loop
+        let orbitsVisible = true;
+        let labelsVisible = true;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Rotate sun
+            sun.rotation.y += 0.001 * speedScale;
+            
+            // Update planet positions
+            for (const [key, planet] of Object.entries(planets)) {
+                // Calculate orbital speed based on distance (Kepler's laws)
+                const orbitalSpeed = (0.01 / Math.sqrt(planet.data.distance)) * speedScale;
+                planet.angle += orbitalSpeed;
+                
+                // Update position
+                planet.mesh.position.x = Math.cos(planet.angle) * (planet.data.distance / distanceScale);
+                planet.mesh.position.z = Math.sin(planet.angle) * (planet.data.distance / distanceScale);
+                
+                // Rotate planet
+                planet.mesh.rotation.y += 0.01 * speedScale;
+                
+                // Update label position
+                if (labels[key]) {
+                    const vector = new THREE.Vector3();
+                    vector.setFromMatrixPosition(planet.mesh.matrixWorld);
+                    vector.project(camera);
+                    
+                    const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+                    const y = (-(vector.y * 0.5) + 0.5) * window.innerHeight;
+                    
+                    labels[key].style.display = labelsVisible ? 'block' : 'none';
+                    labels[key].style.left = x + 'px';
+                    labels[key].style.top = y + 'px';
+                }
+                
+                // Update Saturn's rings position to follow Saturn
+                if (key === 'saturn') {
+                    saturnRings.position.copy(planet.mesh.position);
+                }
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
