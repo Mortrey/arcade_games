@@ -32,6 +32,7 @@
             width: 100%;
             height: 100%;
             position: relative;
+            background: linear-gradient(to bottom, #1a1a2e, #16213e);
         }
         
         .platform {
@@ -82,6 +83,7 @@
             color: white;
             font-size: 18px;
             z-index: 100;
+            text-shadow: 1px 1px 2px black;
         }
         
         #lives-display {
@@ -91,6 +93,7 @@
             color: white;
             font-size: 18px;
             z-index: 100;
+            text-shadow: 1px 1px 2px black;
         }
         
         #game-over, #start-screen {
@@ -154,6 +157,7 @@
             color: white;
             font-size: 16px;
             display: none;
+            text-shadow: 1px 1px 2px black;
         }
         
         .collected {
@@ -163,6 +167,29 @@
         @keyframes collect {
             0% { transform: scale(1); opacity: 1; }
             100% { transform: scale(2); opacity: 0; }
+        }
+        
+        .stars {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            background: white;
+            z-index: 1;
+        }
+        
+        .score-popup {
+            position: absolute;
+            color: #FFD700;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            animation: scorePopup 1s forwards;
+            z-index: 1000;
+        }
+        
+        @keyframes scorePopup {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
         }
     </style>
 </head>
@@ -188,7 +215,6 @@
             <button id="restart-button">Play Again</button>
         </div>
     </div>
-
     <script>
         // Game variables
         const gameArea = document.getElementById('game-area');
@@ -226,6 +252,7 @@
         levelDisplay.style.color = 'white';
         levelDisplay.style.fontSize = '18px';
         levelDisplay.style.zIndex = '100';
+        levelDisplay.style.textShadow = '1px 1px 2px black';
         gameArea.appendChild(levelDisplay);
         
         // Character properties
@@ -237,7 +264,7 @@
             velocityX: 0,
             velocityY: 0,
             speed: 5,
-            jumpPower: 12,
+            jumpPower: 10,
             gravity: 0.5,
             isOnGround: false
         };
@@ -282,10 +309,24 @@
             createDogs();
             createPowerups();
             
+            // Create stars background
+            createStars();
+            
             // Start game loop
             gameRunning = true;
             if (gameLoop) clearInterval(gameLoop);
             gameLoop = setInterval(updateGame, 20);
+        }
+        
+        function createStars() {
+            for (let i = 0; i < 100; i++) {
+                const star = document.createElement('div');
+                star.className = 'stars';
+                star.style.left = `${Math.random() * 800}px`;
+                star.style.top = `${Math.random() * 500}px`;
+                star.style.opacity = Math.random();
+                gameArea.appendChild(star);
+            }
         }
         
         function createPlatforms() {
@@ -334,51 +375,85 @@
         }
         
         function createMice() {
-            const mousePositions = [
-                { x: 150, y: 350, direction: 1 },  // На нижнем уровне
-                { x: 550, y: 350, direction: -1 }, // На нижнем уровне
-                { x: 350, y: 260, direction: 1 },  // На среднем уровне
-                { x: 120, y: 170, direction: 1 },  // На верхнем уровне
-                { x: 580, y: 170, direction: -1 }, // На верхнем уровне
-                { x: 400, y: 440, direction: -1 }  // На земле
-            ];
-            
-            // Randomly select mice positions based on level
-            const selectedPositions = mousePositions
-                .sort(() => Math.random() - 0.5)
-                .slice(0, miceToCatch);
-            
-            selectedPositions.forEach(pos => {
+            // Создаем мышей на каждой платформе
+            platforms.forEach(platform => {
+                // Пропускаем самую верхнюю платформу для разнообразия
+                if (platform.y < 200) return;
+                
                 const mouse = document.createElement('div');
                 mouse.className = 'character mouse';
                 mouse.textContent = Math.random() < 0.3 ? '🐀' : '🐁';
-                mouse.style.left = `${pos.x}px`;
-                mouse.style.top = `${pos.y}px`;
-                mouse.style.transform = pos.direction > 0 ? 'scaleX(1)' : 'scaleX(-1)';
+                mouse.style.left = `${platform.x + Math.random() * (platform.width - 25)}px`;
+                mouse.style.top = `${platform.y - 25}px`;
+                mouse.style.transform = 'scaleX(1)';
                 gameArea.appendChild(mouse);
                 
                 mice.push({
                     element: mouse,
-                    x: pos.x,
-                    y: pos.y,
+                    x: parseFloat(mouse.style.left),
+                    y: parseFloat(mouse.style.top),
                     width: 25,
                     height: 25,
-                    direction: pos.direction,
-                    speed: 0.5 + (level * 0.1), // Уменьшаем скорость и её прирост
-                    platformIndex: getPlatformIndexAtPosition(pos.y + 25)
+                    direction: 1,
+                    speed: 0.5 + (level * 0.1),
+                    platformIndex: platforms.indexOf(platform)
                 });
+            });
+            
+            // Добавляем мышей на земле
+            const groundMouse = document.createElement('div');
+            groundMouse.className = 'character mouse';
+            groundMouse.textContent = Math.random() < 0.3 ? '🐀' : '🐁';
+            groundMouse.style.left = `${200 + Math.random() * 400}px`;
+            groundMouse.style.top = `${445}px`;
+            groundMouse.style.transform = 'scaleX(1)';
+            gameArea.appendChild(groundMouse);
+            
+            mice.push({
+                element: groundMouse,
+                x: parseFloat(groundMouse.style.left),
+                y: parseFloat(groundMouse.style.top),
+                width: 25,
+                height: 25,
+                direction: 1,
+                speed: 0.5 + (level * 0.1),
+                platformIndex: -1 // На земле
             });
         }
         
         function createDogs() {
-            // Slow dog - на нижней платформе слева
-            createDog(150, 350, 1, 'slowest');
+            // Удалить старых собак, если они есть
+            dogs.forEach(dog => {
+                if (dog.element && dog.element.parentNode) {
+                    dog.element.parentNode.removeChild(dog.element);
+                }
+            });
             
-            // Medium dog - на средней платформе
-            createDog(350, 260, -1, 'slow');
-            
-            // Fast dog - на верхней платформе справа
-            createDog(600, 170, 1, 'fast');
+            // На первом уровне создаем только двух собак
+            if (level === 1) {
+                // Slow dog - на нижней платформе слева
+                createDog(150, 350, 1, 'slowest');
+                // Medium dog - на средней платформе
+                createDog(350, 260, -1, 'slow');
+            } else {
+                // На последующих уровнях добавляем собак постепенно
+                // Slow dog - на нижней платформе слева
+                createDog(150, 350, 1, 'slowest');
+                // Medium dog - на средней платформе
+                createDog(350, 260, -1, 'slow');
+                // Fast dog - на верхней платформе справа (добавляется со 2 уровня)
+                if (level >= 2) {
+                    createDog(600, 170, 1, 'fast');
+                }
+                // Дополнительная собака на нижней платформе справа (добавляется с 3 уровня)
+                if (level >= 3) {
+                    createDog(550, 350, -1, 'slow');
+                }
+                // Дополнительная собака на верхней платформе слева (добавляется с 4 уровня)
+                if (level >= 4) {
+                    createDog(150, 170, -1, 'fast');
+                }
+            }
         }
         
         function createDog(x, y, direction, type) {
@@ -393,10 +468,10 @@
             // Уменьшаем скорости собак
             let speed = type === 'fast' ? 1 : (type === 'slowest' ? 0.3 : 0.6);
             
-            // Находим платформу, на которой стоит собака
+            // Находим платформу, на которой должен быть собака
             let dogPlatform = null;
             for (let platform of platforms) {
-                if (y + 28 >= platform.y && y + 28 <= platform.y + 10) {
+                if (Math.abs(y + 28 - platform.y) < 10) {
                     dogPlatform = platform;
                     break;
                 }
@@ -411,12 +486,13 @@
                 direction: direction,
                 speed: speed,
                 type: type,
-                platform: dogPlatform
+                platform: dogPlatform,
+                removed: false // Добавляем флаг, чтобы отслеживать удаленных собак
             });
         }
         
         function createPowerups() {
-            // Create only one powerup at a safe position
+            // Создаем только один powerup на безопасной позиции
             const powerup = document.createElement('div');
             powerup.className = 'character powerup';
             powerup.textContent = '🥩';
@@ -545,7 +621,7 @@
         
         function updateDogsPositions() {
             dogs.forEach(dog => {
-                if (dog.platform && dog.element) {
+                if (dog.element && !dog.removed) {
                     // Move dog
                     dog.x += dog.speed * dog.direction;
                     
@@ -584,31 +660,40 @@
                         }
                     }, 500);
                     
-                    // Update score
+                    // Update score and show popup
+                    let points = 0;
                     if (mouse.element.textContent === '🐁') {
-                        score += 50;
+                        points = 50;
                     } else if (mouse.element.textContent === '🐀') {
-                        score += 100;
+                        points = 100;
                     }
+                    score += points;
                     scoreDisplay.textContent = `Score: ${score}`;
+                    showScorePopup(mouse.x, mouse.y, points);
                 }
             });
             
             // Check dog collisions
             dogs.forEach(dog => {
-                if (catProps.x + catProps.width > dog.x &&
+                if (dog.element && !dog.removed &&
+                    catProps.x + catProps.width > dog.x &&
                     catProps.x < dog.x + dog.width &&
                     catProps.y + catProps.height > dog.y &&
                     catProps.y < dog.y + dog.height) {
                     
                     if (isPowerUpActive) {
                         // Power-up active, remove dog
+                        dog.removed = true; // Помечаем собаку как удаленную
                         dog.element.style.display = 'none';
                         setTimeout(() => {
                             if (dog.element.parentNode) {
                                 dog.element.parentNode.removeChild(dog.element);
                             }
                         }, 500);
+                        
+                        // Add score for catching dog
+                        score += 150;
+                        scoreDisplay.textContent = `Score: ${score}`;
                     } else {
                         // Lose a life
                         loseLife();
@@ -642,13 +727,19 @@
         function activatePowerUp() {
             isPowerUpActive = true;
             cat.textContent = '🐆';
+            
+            // Сохраняем текущие размеры
+            const oldWidth = catProps.width;
+            const oldHeight = catProps.height;
+            
+            // Увеличиваем размер спрайта
             cat.style.fontSize = '60px';
-            cat.style.width = `${catProps.width * 2}px`;
-            cat.style.height = `${catProps.height * 2}px`;
-            catProps.x -= catProps.width / 2;
-            catProps.y -= catProps.height / 2;
-            catProps.width *= 2;
-            catProps.height *= 2;
+            cat.style.width = `${oldWidth * 2}px`;
+            cat.style.height = `${oldHeight * 2}px`;
+            
+            // Смещаем спрайт вверх и центрируем, сохраняя позицию ног на платформе
+            cat.style.marginLeft = `-${oldWidth/2}px`;
+            cat.style.marginTop = `-${oldHeight + 15}px`;  // Добавляем дополнительные 15px к смещению вверх
             
             powerIndicator.style.display = 'block';
             powerUpTimeLeft = 5;
@@ -672,12 +763,10 @@
             isPowerUpActive = false;
             cat.textContent = '🐈';
             cat.style.fontSize = '30px';
-            cat.style.width = `${catProps.width / 2}px`;
-            cat.style.height = `${catProps.height / 2}px`;
-            catProps.x += catProps.width / 2;
-            catProps.y += catProps.height / 2;
-            catProps.width /= 2;
-            catProps.height /= 2;
+            cat.style.width = `${catProps.width}px`;
+            cat.style.height = `${catProps.height}px`;
+            cat.style.marginLeft = '0';
+            cat.style.marginTop = '0';
             
             powerIndicator.style.display = 'none';
             
@@ -718,26 +807,46 @@
                 level++;
                 levelDisplay.textContent = `Level: ${level}`;
                 
-                // Increase difficulty more плавно
+                // Увеличиваем сложность более плавно
                 miceToCatch = Math.min(6 + Math.floor(level/2), 12);
                 
+                // Удаляем старых мышей
                 mice.forEach(mouse => {
                     if (mouse.element.parentNode) {
                         mouse.element.parentNode.removeChild(mouse.element);
                     }
                 });
-                
                 mice = [];
+                
+                // Удаляем старых собак
+                dogs.forEach(dog => {
+                    if (dog.element && dog.element.parentNode) {
+                        dog.element.parentNode.removeChild(dog.element);
+                    }
+                });
+                dogs = [];
+                
+                // Создаем новых мышей и собак
                 createMice();
+                createDogs();
                 
-                // Increase score for completing level
-                score += 100 * level;
-                scoreDisplay.textContent = `Score: ${score}`;
+                // Создаем новый powerup
+                powerups.forEach(powerup => {
+                    if (powerup.element.parentNode) {
+                        powerup.element.parentNode.removeChild(powerup.element);
+                    }
+                });
+                powerups = [];
+                createPowerups();
                 
-                // Make dogs faster более плавно
+                // Увеличиваем скорость собак более плавно
                 dogs.forEach(dog => {
                     dog.speed += 0.1;
                 });
+                
+                // Update score for completing level
+                score += 100 * level;
+                scoreDisplay.textContent = `Score: ${score}`;
             }
         }
         
@@ -746,6 +855,21 @@
             clearInterval(gameLoop);
             finalScore.textContent = score;
             gameOverScreen.style.display = 'flex';
+        }
+        
+        function showScorePopup(x, y, points) {
+            const popup = document.createElement('div');
+            popup.className = 'score-popup';
+            popup.textContent = `+${points}`;
+            popup.style.left = `${x}px`;
+            popup.style.top = `${y}px`;
+            gameArea.appendChild(popup);
+            
+            setTimeout(() => {
+                if (popup.parentNode) {
+                    popup.parentNode.removeChild(popup);
+                }
+            }, 1000);
         }
         
         // Event listeners
