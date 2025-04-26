@@ -380,13 +380,19 @@
 
       const nx = pacman.x + pacman.nextDir.x;
       const ny = pacman.y + pacman.nextDir.y;
-      if (canMove(nx, ny)) pacman.dir = pacman.nextDir;
-      const px = pacman.x + pacman.dir.x;
-      const py = pacman.y + pacman.dir.y;
-      if (canMove(px, py)) { 
-        pacman.x = px; 
-        pacman.y = py;
+      if (canMove(nx, ny)) {
+        pacman.dir = pacman.nextDir;
+        pacman.x = nx;
+        pacman.y = ny;
         mouthOpen = !mouthOpen;
+      } else {
+        const px = pacman.x + pacman.dir.x;
+        const py = pacman.y + pacman.dir.y;
+        if (canMove(px, py)) {
+          pacman.x = px;
+          pacman.y = py;
+          mouthOpen = !mouthOpen;
+        }
       }
 
       if (map[pacman.y][pacman.x] === 0) {

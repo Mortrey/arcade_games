@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌊 Морское Приключение 🐠</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to bottom, #1a3c8a, #0a1f47);
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            margin-top: 20px;
+            background: linear-gradient(to bottom, #0e4a8a, #0080ff, #00ffff);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 200, 255, 0.6);
+            overflow: hidden;
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 800px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .score, .lives, .level {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .player {
+            position: absolute;
+            font-size: 40px;
+            transition: transform 0.1s;
+            transform-origin: center;
+        }
+        
+        .pearl {
+            position: absolute;
+            font-size: 30px;
+            animation: float 2s infinite alternate ease-in-out;
+        }
+        
+        .enemy {
+            position: absolute;
+            font-size: 35px;
+        }
+        
+        .shark {
+            position: absolute;
+            font-size: 35px;
+        }
+        
+        .sea-bottom {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 50px;
+            background: linear-gradient(to bottom, #f5deb3, #deb887);
+            z-index: 1;
+        }
+        
+        .bubble {
+            position: absolute;
+            font-size: 15px;
+            animation: rise 8s linear forwards;
+            opacity: 0.7;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2));
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: transparent;
+        }
+        
+        .bubble-from-sea {
+            position: absolute;
+            font-size: 15px;
+            animation: rise 4s linear forwards;
+            opacity: 0.7;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2));
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: transparent;
+        }
+        
+        .seaweed {
+            position: absolute;
+            bottom: 50px;
+            font-size: 40px;
+            animation: sway 5s infinite alternate ease-in-out;
+            z-index: 2;
+        }
+        
+        .rock {
+            position: absolute;
+            bottom: 50px;
+            font-size: 30px;
+            z-index: 2;
+        }
+        
+        .crab {
+            position: absolute;
+            bottom: 50px;
+            font-size: 35px;
+            animation: moveCrab 5s infinite alternate ease-in-out;
+            z-index: 2;
+        }
+        
+        .clam {
+            position: absolute;
+            bottom: 50px;
+            font-size: 30px;
+            z-index: 2;
+        }
+        
+        .start-screen, .game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 10;
+        }
+        
+        .title {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+        }
+        
+        .subtitle {
+            font-size: 24px;
+            margin-bottom: 40px;
+            color: #ffffff;
+        }
+        
+        button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: linear-gradient(to bottom, #00ffff, #0080ff);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.8);
+        }
+        
+        button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 25px rgba(0, 200, 255, 1);
+        }
+        
+        .controls {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 18px;
+            color: #aaffff;
+        }
+        
+        .notification {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 18px;
+            opacity: 0;
+            transition: opacity 0.5s;
+            z-index: 5;
+        }
+        
+        .bonus {
+            position: absolute;
+            font-size: 30px;
+            animation: float 2s infinite alternate ease-in-out;
+            z-index: 5;
+        }
+
+        .bonus-shield {
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+        }
+
+        .bonus-speed {
+            color: #ff00ff;
+            text-shadow: 0 0 10px #ff00ff;
+        }
+
+        .bonus-life {
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+        }
+
+        .player-shield {
+            animation: shield 2s infinite;
+            border-radius: 50%;
+            box-shadow: 0 0 30px #00ffff, 0 0 50px #00ffff;
+        }
+
+        @keyframes shield {
+            0% { box-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff; }
+            50% { box-shadow: 0 0 30px #00ffff, 0 0 60px #00ffff; }
+            100% { box-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff; }
+        }
+
+        .player-speed {
+            animation: speed 0.5s infinite;
+        }
+
+        @keyframes speed {
+            0% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+            100% { filter: brightness(1); }
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-10px); }
+        }
+        
+        @keyframes rise {
+            0% { transform: translateY(0); opacity: 0.7; }
+            100% { transform: translateY(-600px); opacity: 0; }
+        }
+        
+        @keyframes sway {
+            0% { transform: rotate(-5deg); }
+            100% { transform: rotate(5deg); }
+        }
+        
+        @keyframes moveCrab {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(700px); }
+            100% { transform: translateX(0); }
+        }
+
+        @keyframes moveCrabReverse {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(-700px); }
+            100% { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container" id="gameContainer">
+        <div class="start-screen" id="startScreen">
+            <div class="title">🌊 Морское Приключение 🐠</div>
+            <div class="subtitle">Собирай креветок и избегай опасностей!</div>
+            <button id="startButton">Начать игру</button>
+            <div class="controls">
+                Управление: ⬆️⬇️⬅️➡️ или WASD
+            </div>
+        </div>
+        <div class="game-over-screen" id="gameOverScreen" style="display: none;">
+            <div class="title">🐠 Игра окончена 🐡</div>
+            <div class="subtitle" id="finalScore">Ты собрал 0 креветок!</div>
+            <button id="restartButton">Сыграть снова</button>
+        </div>
+        <div class="notification" id="notification"></div>
+    </div>
+    <div class="game-info">
+        <div class="score" id="scoreDisplay">Креветки: 0 🦐</div>
+        <div class="lives" id="livesDisplay">Жизни: 3 ❤️</div>
+        <div class="level" id="levelDisplay">Уровень: 1</div>
+    </div>
+
+    <script>
+        // Игровые переменные
+        let score = 0;
+        let lives = 3;
+        let level = 1;
+        let gameActive = false;
+        let player;
+        let pearls = [];
+        let enemies = [];
+        let sharks = [];
+        let bubbles = [];
+        let bubbleFromSea = [];
+        let seaweeds = [];
+        let rocks = [];
+        let crabs = [];
+        let clams = [];
+        let bonuses = [];
+        let playerSpeed = 8;
+        let playerDirection = 1; // 1 - вправо, -1 - влево
+        let hasShield = false;
+        let isSpeedBoosted = false;
+        let pearlGenerationInterval;
+        let enemyGenerationInterval;
+        let sharkGenerationInterval;
+        let bubbleGenerationInterval;
+        let bubbleFromSeaGenerationInterval;
+        let bonusGenerationInterval;
+        let gameLoopInterval;
+        
+        // Получение элементов DOM
+        const gameContainer = document.getElementById('gameContainer');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const livesDisplay = document.getElementById('livesDisplay');
+        const levelDisplay = document.getElementById('levelDisplay');
+        const finalScore = document.getElementById('finalScore');
+        const notification = document.getElementById('notification');
+        
+        // Размеры контейнера
+        const containerWidth = gameContainer.offsetWidth;
+        const containerHeight = gameContainer.offsetHeight;
+        
+        // Звуковые эффекты
+        const sounds = {
+            collect: new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU...'),
+            hit: new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU...'),
+            bonus: new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU...'),
+            levelUp: new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU...')
+        };
+        
+        // Обработчики событий
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame);
+        
+        // Управление с клавиатуры
+        const keys = {
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false,
+            w: false,
+            a: false,
+            s: false,
+            d: false
+        };
+        
+        document.addEventListener('keydown', (e) => {
+            if (keys.hasOwnProperty(e.key)) {
+                keys[e.key] = true;
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.key)) {
+                keys[e.key] = false;
+            }
+        });
+        
+        // Функция начала игры
+        function startGame() {
+            // Сброс игры
+            score = 0;
+            lives = 3;
+            level = 1;
+            gameActive = true;
+            hasShield = false;
+            isSpeedBoosted = false;
+            pearls = [];
+            enemies = [];
+            sharks = [];
+            bubbles = [];
+            bubbleFromSea = [];
+            bonuses = [];
+            
+            // Обновление отображения
+            scoreDisplay.textContent = `Креветки: ${score} 🦐`;
+            livesDisplay.textContent = `Жизни: ${lives} ❤️`;
+            levelDisplay.textContent = `Уровень: ${level}`;
+            
+            // Скрыть экраны
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            
+            // Создание игрока
+            if (player) {
+                player.remove();
+            }
+            player = document.createElement('div');
+            player.className = 'player';
+            player.textContent = '🐠';
+            player.style.left = `${containerWidth / 2}px`;
+            player.style.top = `${containerHeight / 2}px`;
+            gameContainer.appendChild(player);
+            
+            // Создание декораций
+            createDecorations();
+            
+            // Запуск интервалов
+            clearInterval(pearlGenerationInterval);
+            clearInterval(enemyGenerationInterval);
+            clearInterval(sharkGenerationInterval);
+            clearInterval(bubbleGenerationInterval);
+            clearInterval(bubbleFromSeaGenerationInterval);
+            clearInterval(bonusGenerationInterval);
+            clearInterval(gameLoopInterval);
+            
+            pearlGenerationInterval = setInterval(generatePearl, 2000);
+            enemyGenerationInterval = setInterval(generateEnemy, 3000);
+            sharkGenerationInterval = setInterval(generateShark, 8000);
+            bubbleGenerationInterval = setInterval(generateBubble, 500);
+            bubbleFromSeaGenerationInterval = setInterval(generateBubbleFromSea, 300);
+            bonusGenerationInterval = setInterval(generateBonus, 15000);
+            gameLoopInterval = setInterval(gameLoop, 20);
+            
+            showNotification(`Уровень ${level}!`);
+        }
+        
+        // Создание декораций
+        function createDecorations() {
+            // Удаление старых декораций
+            document.querySelectorAll('.seaweed, .rock, .crab, .clam, .sea-bottom').forEach(el => el.remove());
+            seaweeds = [];
+            rocks = [];
+            crabs = [];
+            clams = [];
+            
+            // Создание морского дна
+            const seaBottom = document.createElement('div');
+            seaBottom.className = 'sea-bottom';
+            gameContainer.appendChild(seaBottom);
+            
+            // Создание водорослей
+            for (let i = 0; i < 8; i++) {
+                const seaweed = document.createElement('div');
+                seaweed.className = 'seaweed';
+                seaweed.textContent = '🌿';
+                seaweed.style.left = `${Math.random() * containerWidth}px`;
+                seaweed.style.animationDelay = `${Math.random() * 2}s`;
+                gameContainer.appendChild(seaweed);
+                seaweeds.push(seaweed);
+            }
+            
+            // Создание крабов
+            const crab1 = document.createElement('div');
+            crab1.className = 'crab';
+            crab1.textContent = '🦀';
+            crab1.style.left = '0px';
+            crab1.style.animation = 'moveCrab 10s infinite alternate ease-in-out';
+            crab1.isActive = true;
+            gameContainer.appendChild(crab1);
+            crabs.push(crab1);
+            
+            const crab2 = document.createElement('div');
+            crab2.className = 'crab';
+            crab2.textContent = '🦀';
+            crab2.style.left = `${containerWidth - 35}px`;
+            crab2.style.animation = 'moveCrabReverse 10s infinite alternate ease-in-out';
+            crab2.isActive = true;
+            gameContainer.appendChild(crab2);
+            crabs.push(crab2);
+            
+            // Создание мидий
+            for (let i = 0; i < 5; i++) {
+                const clam = document.createElement('div');
+                clam.className = 'clam';
+                clam.textContent = '🦪';
+                clam.style.left = `${Math.random() * containerWidth}px`;
+                gameContainer.appendChild(clam);
+                clams.push(clam);
+            }
+        }
+        
+        // Генерация жемчужин
+        function generatePearl() {
+            if (!gameActive) return;
+            
+            const pearl = document.createElement('div');
+            pearl.className = 'pearl';
+            pearl.textContent = '🦐';
+            pearl.style.left = `${Math.random() * (containerWidth - 30)}px`;
+            pearl.style.top = '-30px';
+            gameContainer.appendChild(pearl);
+            pearls.push(pearl);
+            
+            // Удаление креветки через 10 секунд
+            setTimeout(() => {
+                if (pearls.includes(pearl)) {
+                    const index = pearls.indexOf(pearl);
+                    if (index > -1) {
+                        pearls.splice(index, 1);
+                    }
+                    pearl.remove();
+                }
+            }, 10000);
+        }
+        
+        // Генерация врагов
+        function generateEnemy() {
+            if (!gameActive) return;
+            
+            const enemyTypes = ['🦑', '🐙'];
+            const enemy = document.createElement('div');
+            enemy.className = 'enemy';
+            enemy.textContent = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+            
+            // Случайное положение в верхней части экрана
+            enemy.style.left = `${Math.random() * (containerWidth - 35)}px`;
+            enemy.style.top = '-35px';
+            
+            // Случайная скорость
+            enemy.speed = 4 + Math.random() * 3;
+            
+            gameContainer.appendChild(enemy);
+            enemies.push(enemy);
+            
+            // Удаление врага через 15 секунд
+            setTimeout(() => {
+                if (enemies.includes(enemy)) {
+                    const index = enemies.indexOf(enemy);
+                    if (index > -1) {
+                        enemies.splice(index, 1);
+                    }
+                    enemy.remove();
+                }
+            }, 15000);
+        }
+        
+        // Генерация акул
+        function generateShark() {
+            if (!gameActive) return;
+            
+            const shark = document.createElement('div');
+            shark.className = 'shark';
+            shark.textContent = '🦈';
+            
+            // Акулы появляются с боковых сторон
+            const fromLeft = Math.random() > 0.5;
+            if (fromLeft) {
+                shark.style.left = '-35px';
+                shark.speedX = 4 + Math.random() * 3;
+                shark.speedY = -2 - Math.random() * 2;
+            } else {
+                shark.style.left = `${containerWidth}px`;
+                shark.speedX = -4 - Math.random() * 3;
+                shark.speedY = -2 - Math.random() * 2;
+            }
+            shark.style.top = `${Math.random() * (containerHeight / 2)}px`;
+            
+            gameContainer.appendChild(shark);
+            sharks.push(shark);
+            
+            // Удаление акулы через 20 секунд
+            setTimeout(() => {
+                if (sharks.includes(shark)) {
+                    const index = sharks.indexOf(shark);
+                    if (index > -1) {
+                        sharks.splice(index, 1);
+                    }
+                    shark.remove();
+                }
+            }, 20000);
+        }
+        
+        // Генерация пузырей
+        function generateBubble() {
+            if (!gameActive) return;
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.textContent = '🫧';
+            bubble.style.left = `${Math.random() * containerWidth}px`;
+            bubble.style.bottom = '0px';
+            gameContainer.appendChild(bubble);
+            
+            // Удаление пузыря через 8 секунд
+            setTimeout(() => {
+                bubble.remove();
+            }, 8000);
+        }
+        
+        // Генерация пузырей от морского дна
+        function generateBubbleFromSea() {
+            if (!gameActive) return;
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble-from-sea';
+            bubble.textContent = '🫧';
+            bubble.style.left = `${Math.random() * containerWidth}px`;
+            bubble.style.bottom = '0px';
+            gameContainer.appendChild(bubble);
+            bubbleFromSea.push(bubble);
+            
+            // Удаление пузыря через 4 секунды
+            setTimeout(() => {
+                if (bubbleFromSea.includes(bubble)) {
+                    const index = bubbleFromSea.indexOf(bubble);
+                    if (index > -1) {
+                        bubbleFromSea.splice(index, 1);
+                    }
+                    bubble.remove();
+                }
+            }, 4000);
+        }
+        
+        // Генерация бонусов
+        function generateBonus() {
+            if (!gameActive) return;
+            
+            // Равные шансы для всех бонусов (33.33% каждый)
+            const random = Math.random();
+            let bonusType;
+            
+            if (random < 0.333) { // 33.33% шанс щита
+                bonusType = { type: 'shield', emoji: '🛡️', duration: 10000, position: 'random' };
+            } else if (random < 0.666) { // 33.33% шанс ускорения
+                bonusType = { type: 'speed', emoji: '⚡', duration: 5000, position: 'bottom' };
+            } else { // 33.33% шанс жизни
+                bonusType = { type: 'life', emoji: '❤️', duration: 0, position: 'top' };
+            }
+            
+            const bonusElement = document.createElement('div');
+            bonusElement.className = `bonus bonus-${bonusType.type}`;
+            bonusElement.textContent = bonusType.emoji;
+            bonusElement.type = bonusType.type;
+            bonusElement.duration = bonusType.duration;
+            
+            // Размещение бонуса в зависимости от типа
+            switch(bonusType.position) {
+                case 'top':
+                    bonusElement.style.left = `${Math.random() * (containerWidth - 30)}px`;
+                    bonusElement.style.top = '-30px';
+                    bonusElement.speed = 2;
+                    break;
+                case 'bottom':
+                    bonusElement.style.left = `${Math.random() * (containerWidth - 30)}px`;
+                    bonusElement.style.bottom = '50px';
+                    bonusElement.speed = 0;
+                    break;
+                case 'random':
+                    bonusElement.style.left = `${Math.random() * (containerWidth - 30)}px`;
+                    bonusElement.style.top = `${Math.random() * (containerHeight - 100)}px`;
+                    bonusElement.speed = 0;
+                    break;
+            }
+            
+            gameContainer.appendChild(bonusElement);
+            bonuses.push(bonusElement);
+            
+            setTimeout(() => {
+                if (bonuses.includes(bonusElement)) {
+                    const index = bonuses.indexOf(bonusElement);
+                    if (index > -1) {
+                        bonuses.splice(index, 1);
+                    }
+                    bonusElement.remove();
+                }
+            }, 10000);
+        }
+        
+        // Основной игровой цикл
+        function gameLoop() {
+            if (!gameActive) return;
+            
+            // Перемещение игрока
+            movePlayer();
+            
+            // Перемещение креветок
+            movePearls();
+            
+            // Перемещение врагов
+            moveEnemies();
+            
+            // Перемещение акул
+            moveSharks();
+            
+            // Перемещение бонусов-жизней
+            moveBonuses();
+            
+            // Проверка столкновений
+            checkCollisions();
+        }
+        
+        // Перемещение игрока
+        function movePlayer() {
+            let x = parseInt(player.style.left);
+            let y = parseInt(player.style.top);
+            let currentSpeed = isSpeedBoosted ? playerSpeed * 2 : playerSpeed;
+            
+            if ((keys.ArrowUp || keys.w) && y > 0) {
+                y -= currentSpeed;
+            }
+            if ((keys.ArrowDown || keys.s) && y < containerHeight - 40 - 50) {
+                y += currentSpeed;
+            }
+            if ((keys.ArrowLeft || keys.a) && x > 0) {
+                x -= currentSpeed;
+                playerDirection = -1;
+            }
+            if ((keys.ArrowRight || keys.d) && x < containerWidth - 40) {
+                x += currentSpeed;
+                playerDirection = 1;
+            }
+            
+            player.style.left = `${x}px`;
+            player.style.top = `${y}px`;
+            
+            // Поворот рыбки в сторону последнего движения
+            if (isSpeedBoosted) {
+                player.style.transform = playerDirection === 1 ? 'scaleX(-1) scale(1.1)' : 'scaleX(1) scale(1.1)';
+            } else {
+                player.style.transform = playerDirection === 1 ? 'scaleX(-1)' : 'scaleX(1)';
+            }
+        }
+        
+        // Перемещение креветок
+        function movePearls() {
+            for (let i = pearls.length - 1; i >= 0; i--) {
+                const pearl = pearls[i];
+                let y = parseInt(pearl.style.top);
+                y += 2;
+                pearl.style.top = `${y}px`;
+                
+                // Удаление креветки, если она ушла за экран
+                if (y > containerHeight) {
+                    pearl.remove();
+                    pearls.splice(i, 1);
+                }
+            }
+        }
+        
+        // Перемещение врагов
+        function moveEnemies() {
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                let y = parseInt(enemy.style.top);
+                y += enemy.speed;
+                enemy.style.top = `${y}px`;
+                
+                // Удаление врага, если он ушел за экран
+                if (y > containerHeight) {
+                    enemy.remove();
+                    enemies.splice(i, 1);
+                }
+            }
+        }
+        
+        // Перемещение акул
+        function moveSharks() {
+            for (let i = sharks.length - 1; i >= 0; i--) {
+                const shark = sharks[i];
+                let x = parseInt(shark.style.left);
+                let y = parseInt(shark.style.top);
+                
+                x += shark.speedX;
+                y += shark.speedY;
+                
+                shark.style.left = `${x}px`;
+                shark.style.top = `${y}px`;
+                
+                // Поворот акулы в сторону движения
+                if (shark.speedX > 0) {
+                    shark.style.transform = 'scaleX(1)';
+                } else {
+                    shark.style.transform = 'scaleX(-1)';
+                }
+                
+                // Удаление акулы, если она ушла за экран
+                if (x < -50 || x > containerWidth + 50 || y < -50 || y > containerHeight + 50) {
+                    shark.remove();
+                    sharks.splice(i, 1);
+                }
+            }
+        }
+        
+        // Перемещение бонусов-жизней
+        function moveBonuses() {
+            for (let i = bonuses.length - 1; i >= 0; i--) {
+                const bonus = bonuses[i];
+                if (bonus.speed > 0) { // Перемещаем только падающие бонусы
+                    let y = parseInt(bonus.style.top);
+                    y += bonus.speed;
+                    bonus.style.top = `${y}px`;
+                    
+                    // Удаление бонуса, если он упал за экран
+                    if (y > containerHeight) {
+                        bonus.remove();
+                        bonuses.splice(i, 1);
+                    }
+                }
+            }
+        }
+        
+        // Проверка столкновений
+        function checkCollisions() {
+            const playerRect = player.getBoundingClientRect();
+            
+            // Проверка столкновений с креветками
+            for (let i = pearls.length - 1; i >= 0; i--) {
+                const pearl = pearls[i];
+                const pearlRect = pearl.getBoundingClientRect();
+                
+                if (isColliding(playerRect, pearlRect)) {
+                    // Собираем креветку
+                    score++;
+                    scoreDisplay.textContent = `Креветки: ${score} 🦐`;
+                    
+                    // Удаление креветки
+                    pearl.remove();
+                    pearls.splice(i, 1);
+                    
+                    // Эффект увеличения игрока
+                    player.style.transform = 'scale(1.2)';
+                    setTimeout(() => {
+                        player.style.transform = '';
+                    }, 300);
+                    
+                    // Проверка на переход на следующий уровень
+                    if (score % 10 === 0) {
+                        levelUp();
+                    }
+                }
+            }
+            
+            // Проверка столкновений с крабами
+            for (let i = crabs.length - 1; i >= 0; i--) {
+                const crab = crabs[i];
+                if (!crab.isActive) continue; // Пропускаем неактивных крабов
+                
+                const crabRect = crab.getBoundingClientRect();
+                
+                if (isColliding(playerRect, crabRect)) {
+                    // Столкновение с крабом
+                    lives--;
+                    livesDisplay.textContent = `Жизни: ${lives} ❤️`;
+                    
+                    // Деактивируем краба на 3 секунды
+                    crab.isActive = false;
+                    crab.style.opacity = '0.5';
+                    
+                    // Эффект удара
+                    player.style.transform = 'rotate(180deg) scale(0.8)';
+                    setTimeout(() => {
+                        player.style.transform = '';
+                    }, 300);
+                    
+                    // Активируем краба через 3 секунды
+                    setTimeout(() => {
+                        crab.isActive = true;
+                        crab.style.opacity = '1';
+                    }, 3000);
+                    
+                    // Проверка на конец игры
+                    if (lives <= 0) {
+                        gameOver();
+                    }
+                }
+            }
+            
+            // Проверка столкновений с врагами
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                const enemyRect = enemy.getBoundingClientRect();
+                
+                if (isColliding(playerRect, enemyRect)) {
+                    // Столкновение с врагом
+                    lives--;
+                    livesDisplay.textContent = `Жизни: ${lives} ❤️`;
+                    
+                    // Удаление врага
+                    enemy.remove();
+                    enemies.splice(i, 1);
+                    
+                    // Эффект удара
+                    player.style.transform = 'rotate(180deg) scale(0.8)';
+                    setTimeout(() => {
+                        player.style.transform = '';
+                    }, 300);
+                    
+                    // Проверка на конец игры
+                    if (lives <= 0) {
+                        gameOver();
+                    }
+                }
+            }
+            
+            // Проверка столкновений с акулами
+            for (let i = sharks.length - 1; i >= 0; i--) {
+                const shark = sharks[i];
+                const sharkRect = shark.getBoundingClientRect();
+                
+                if (isColliding(playerRect, sharkRect)) {
+                    // Столкновение с акулой
+                    lives--;
+                    livesDisplay.textContent = `Жизни: ${lives} ❤️`;
+                    
+                    // Удаление акулы
+                    shark.remove();
+                    sharks.splice(i, 1);
+                    
+                    // Эффект удара
+                    player.style.transform = 'rotate(180deg) scale(0.8)';
+                    setTimeout(() => {
+                        player.style.transform = '';
+                    }, 300);
+                    
+                    // Проверка на конец игры
+                    if (lives <= 0) {
+                        gameOver();
+                    }
+                }
+            }
+            
+            // Проверка столкновений с бонусами
+            for (let i = bonuses.length - 1; i >= 0; i--) {
+                const bonus = bonuses[i];
+                const bonusRect = bonus.getBoundingClientRect();
+                
+                if (isColliding(playerRect, bonusRect)) {
+                    // Активация бонуса
+                    activateBonus(bonus.type, bonus.duration);
+                    sounds.bonus.play();
+                    
+                    // Удаление бонуса
+                    bonus.remove();
+                    bonuses.splice(i, 1);
+                }
+            }
+        }
+        
+        // Функция перехода на следующий уровень
+        function levelUp() {
+            level++;
+            levelDisplay.textContent = `Уровень: ${level}`;
+            showNotification(`Уровень ${level}!`);
+            
+            // Увеличение сложности
+            clearInterval(pearlGenerationInterval);
+            clearInterval(enemyGenerationInterval);
+            clearInterval(sharkGenerationInterval);
+            
+            const pearlInterval = Math.max(1000, 2000 - level * 200);
+            const enemyInterval = Math.max(1500, 3000 - level * 300);
+            const sharkInterval = Math.max(5000, 8000 - level * 500);
+            
+            pearlGenerationInterval = setInterval(generatePearl, pearlInterval);
+            enemyGenerationInterval = setInterval(generateEnemy, enemyInterval);
+            sharkGenerationInterval = setInterval(generateShark, sharkInterval);
+        }
+        
+        // Функция отображения уведомления
+        function showNotification(message) {
+            notification.textContent = message;
+            notification.style.opacity = 1;
+            
+            setTimeout(() => {
+                notification.style.opacity = 0;
+            }, 2000);
+        }
+        
+        // Функция завершения игры
+        function gameOver() {
+            gameActive = false;
+            
+            // Остановка интервалов
+            clearInterval(pearlGenerationInterval);
+            clearInterval(enemyGenerationInterval);
+            clearInterval(sharkGenerationInterval);
+            clearInterval(bubbleGenerationInterval);
+            clearInterval(bubbleFromSeaGenerationInterval);
+            clearInterval(bonusGenerationInterval);
+            clearInterval(gameLoopInterval);
+            
+            // Удаление всех элементов
+            pearls.forEach(pearl => pearl.remove());
+            enemies.forEach(enemy => enemy.remove());
+            sharks.forEach(shark => shark.remove());
+            bubbles.forEach(bubble => bubble.remove());
+            bubbleFromSea.forEach(bubble => bubble.remove());
+            bonuses.forEach(bonus => bonus.remove());
+            
+            pearls = [];
+            enemies = [];
+            sharks = [];
+            bubbles = [];
+            bubbleFromSea = [];
+            bonuses = [];
+            
+            // Показ экрана игры окончена
+            finalScore.textContent = `Ты собрал ${score} креветок!`;
+            gameOverScreen.style.display = 'flex';
+        }
+        
+        // Функция проверки столкновений
+        function isColliding(rect1, rect2) {
+            return !(
+                rect1.right < rect2.left || 
+                rect1.left > rect2.right || 
+                rect1.bottom < rect2.top || 
+                rect1.top > rect2.bottom
+            );
+        }
+        
+        function activateBonus(type, duration) {
+            switch(type) {
+                case 'shield':
+                    hasShield = true;
+                    player.classList.add('player-shield');
+                    setTimeout(() => {
+                        hasShield = false;
+                        player.classList.remove('player-shield');
+                    }, duration);
+                    break;
+                case 'speed':
+                    isSpeedBoosted = true;
+                    player.classList.add('player-speed');
+                    setTimeout(() => {
+                        isSpeedBoosted = false;
+                        player.classList.remove('player-speed');
+                    }, duration);
+                    break;
+                case 'life':
+                    lives = Math.min(lives + 1, 5);
+                    livesDisplay.textContent = `Жизни: ${lives} ❤️`;
+                    break;
+            }
+        }
+    </script>
+</body>
+</html>
