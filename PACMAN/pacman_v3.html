@@ -23,6 +23,7 @@
       transform: translateX(-50%);
       font-size: 32px;
       z-index: 2;
+      visibility: hidden;
     }
     #lives {
       position: absolute;
@@ -30,12 +31,14 @@
       left: 20px;
       font-size: 32px;
       z-index: 2;
+      visibility: hidden;
     }
     canvas {
       background: #000;
       image-rendering: pixelated;
       border: 5px solid white;
       z-index: 1;
+      visibility: hidden;
     }
     #overlay {
       position: absolute;
@@ -90,6 +93,91 @@
       margin-top: 10px;
       color: #ffeb3b;
     }
+    #splash-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 4;
+      transition: opacity 1s ease-in-out;
+    }
+    .pacman-logo {
+      font-size: 80px;
+      font-weight: bold;
+      color: yellow;
+      text-shadow: 0 0 15px yellow;
+      margin-bottom: 20px;
+      letter-spacing: 5px;
+      animation: bounce 2s infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+    .game-description {
+      max-width: 600px;
+      text-align: center;
+      margin-bottom: 40px;
+      line-height: 1.6;
+      color: #ffeb3b;
+    }
+    .controls {
+      display: flex;
+      justify-content: space-around;
+      width: 100%;
+      max-width: 600px;
+      margin-bottom: 40px;
+    }
+    .control-item {
+      text-align: center;
+      padding: 15px;
+    }
+    .control-icon {
+      font-size: 40px;
+      margin-bottom: 10px;
+    }
+    .start-button {
+      padding: 15px 40px;
+      font-size: 24px;
+      background: yellow;
+      color: black;
+      border: none;
+      cursor: pointer;
+      border-radius: 10px;
+      transition: all 0.3s;
+      font-weight: bold;
+      letter-spacing: 2px;
+      box-shadow: 0 0 15px rgba(255, 255, 0, 0.5);
+    }
+    .start-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 25px rgba(255, 255, 0, 0.8);
+    }
+    .ghosts-info {
+      display: flex;
+      justify-content: space-around;
+      width: 100%;
+      max-width: 600px;
+      margin-bottom: 40px;
+    }
+    .ghost {
+      text-align: center;
+    }
+    .ghost-icon {
+      font-size: 40px;
+      margin-bottom: 10px;
+    }
+    .score-info {
+      font-size: 24px;
+      color: #ffeb3b;
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
@@ -104,16 +192,82 @@
     <div>Тебя убили!</div>
     <div class="subtitle">Попробуй еще раз и будь осторожнее</div>
   </div>
+  <div id="splash-screen">
+    <div class="pacman-logo">PACMAN</div>
+    <div class="game-description">
+      <p>Классическая аркадная игра, созданная в 1980 году.</p>
+      <p>Соберите все точки, избегая призраков, и доберитесь до финиша!</p>
+    </div>
+    
+    <div class="ghosts-info">
+      <div class="ghost">
+        <div class="ghost-icon">👻</div>
+        <div>Призрак</div>
+      </div>
+      <div class="ghost">
+        <div class="ghost-icon">👻</div>
+        <div>Призрак</div>
+      </div>
+    </div>
+    
+    <div class="controls">
+      <div class="control-item">
+        <div class="control-icon">⬆️</div>
+        <div>Вверх</div>
+      </div>
+      <div class="control-item">
+        <div class="control-icon">⬅️</div>
+        <div>Влево</div>
+      </div>
+      <div class="control-item">
+        <div class="control-icon">⬇️</div>
+        <div>Вниз</div>
+      </div>
+      <div class="control-item">
+        <div class="control-icon">➡️</div>
+        <div>Вправо</div>
+      </div>
+    </div>
+    
+    <div class="score-info">
+      <p>Собирай точки: 10 очков</p>
+      <p>Собирай арбузы: 50 очков + временная сила</p>
+      <p>Съешь призрака под влиянием силы: 200 очков</p>
+    </div>
+    
+    <button class="start-button">НАЧАТЬ ИГРУ</button>
+  </div>
   <audio id="chomp" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU" preload="auto"></audio>
   <audio id="death" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU" preload="auto"></audio>
   <audio id="victory" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU" preload="auto"></audio>
+  
   <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const scoreBoard = document.getElementById('score');
+    const livesDisplay = document.getElementById('lives');
     const overlay = document.getElementById('overlay');
     const gameOverText = document.getElementById('game-over-text');
     const restartBtn = document.getElementById('restart-btn');
+    const splashScreen = document.getElementById('splash-screen');
+    const startBtn = document.querySelector('.start-button');
+    
+    // Запуск игры после нажатия на кнопку "Начать игру"
+    function startGame() {
+      splashScreen.style.opacity = '0';
+      setTimeout(() => {
+        splashScreen.style.display = 'none';
+        scoreBoard.style.visibility = 'visible';
+        livesDisplay.style.visibility = 'visible';
+        canvas.style.visibility = 'visible';
+        loop();
+      }, 1000);
+    }
+    
+    // Обработчик для кнопки старта
+    startBtn.addEventListener('click', startGame);
+    
+    // Мапа игры
 
     const map = [
       [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -133,7 +287,7 @@
       [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
       [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ];
-
+    
     const scale = 2 / 3;
     const tileSize = 80 * scale;
     const rows = map.length;
@@ -142,18 +296,16 @@
     const canvasHeight = rows * tileSize;
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
-
     const speed = 10;
     let frameCount = 0;
     let gameOver = false;
-
     // Перемещаем арбузы на новые позиции
     map[2][1] = 0; // Убираем арбуз из верхнего левого угла
     map[2][26] = 3; // Оставляем арбуз в верхнем правом углу
     map[13][1] = 3; // Оставляем арбуз в нижнем левом углу
     map[13][26] = 3; // Оставляем арбуз в нижнем правом углу
     map[7][13] = 3; // Добавляем арбуз в центр верхней части
-
+    
     // Теперь идет подсчет точек
     let totalDots = 0;
     let dotsEaten = 0;
@@ -163,14 +315,14 @@
     }));
     remainingDots = totalDots;
     console.log('Total dots on map:', totalDots); // Проверьте это значение в консоли браузера
-
+    
     let score = 0;
     const pacman = { x: 1, y: 1, dir: { x: 1, y: 0 }, nextDir: { x: 0, y: 0 } };
     const ghosts = [
       { x: 13, y: 7, dir: { x: 1, y: 0 }, color: 'red', emoji: '👻' },
       { x: 14, y: 7, dir: { x: -1, y: 0 }, color: 'pink', emoji: '👻' }
     ];
-
+    
     const chompSound = document.getElementById('chomp');
     const deathSound = document.getElementById('death');
     const victorySound = document.getElementById('victory');
@@ -315,7 +467,6 @@
     let mouthOpen = true;
     const MOUTH_CLOSED = 0.1 * Math.PI;
     const MOUTH_OPEN = 0.4 * Math.PI;
-
     document.addEventListener('keydown', e => {
       switch (e.key) {
         case 'ArrowUp': pacman.nextDir = { x: 0, y: -1 }; break;
@@ -324,11 +475,9 @@
         case 'ArrowRight': pacman.nextDir = { x: 1, y: 0 }; break;
       }
     });
-
     function canMove(x, y) {
       return map[y] && map[y][x] !== 1;
     }
-
     let lives = 3;
     let powerMode = false;
     let powerModeTimer = null;
@@ -341,7 +490,7 @@
     let ghostRespawnTimers = [];
     
     function updateLivesDisplay() {
-      document.getElementById('lives').textContent = '❤️'.repeat(lives);
+      livesDisplay.textContent = '❤️'.repeat(lives);
     }
     
     function startPowerMode() {
@@ -377,7 +526,6 @@
       
       const prevPac = { x: pacman.x, y: pacman.y };
       const prevGhosts = ghosts.map(g => ({ x: g.x, y: g.y }));
-
       const nx = pacman.x + pacman.nextDir.x;
       const ny = pacman.y + pacman.nextDir.y;
       if (canMove(nx, ny)) {
@@ -394,7 +542,6 @@
           mouthOpen = !mouthOpen;
         }
       }
-
       if (map[pacman.y][pacman.x] === 0) {
         map[pacman.y][pacman.x] = 2;
         score += 10;
@@ -425,7 +572,6 @@
           createVictorySound();
         }
       }
-
       ghosts.forEach((g, i) => {
         if (g.isRespawning) return;
         
@@ -464,9 +610,8 @@
         }
       });
     }
-
     restartBtn.addEventListener('click', () => location.reload());
-
+    
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       for (let y = 0; y < rows; y++) {
@@ -524,7 +669,6 @@
       ctx.arc(cx, cy, tileSize/2 - tileSize*0.05, angle + (mouthOpen ? MOUTH_OPEN : MOUTH_CLOSED), angle - (mouthOpen ? MOUTH_OPEN : MOUTH_CLOSED), false);
       ctx.lineTo(cx, cy);
       ctx.fill();
-
       // Draw Ghosts as emoji
       ghosts.forEach(g => {
         if (g.isRespawning) return;
@@ -536,15 +680,13 @@
         ctx.fillText(g.emoji, g.x * tileSize + tileSize/2, g.y * tileSize + tileSize/2);
       });
     }
-
+    
     function loop() {
       frameCount++;
       if (frameCount % speed === 0 && !gameOver) update();
       draw();
       requestAnimationFrame(loop);
     }
-
-    loop();
   </script>
 </body>
 </html>
