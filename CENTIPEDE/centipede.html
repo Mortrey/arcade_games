@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centipede 🦂</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #111;
+            font-family: Arial, sans-serif;
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 600px;
+            height: 700px;
+            background-color: #000;
+            border: 4px solid #444;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        
+        #game-board {
+            width: 100%;
+            height: 600px;
+            position: relative;
+            overflow: hidden;
+            background-color: #000;
+        }
+        
+        #info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 100px;
+            padding: 0 20px;
+            background-color: #222;
+            border-top: 4px solid #444;
+        }
+        
+        #score, #lives {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0f0;
+            text-shadow: 0 0 5px #0f0;
+        }
+        
+        .player {
+            position: absolute;
+            font-size: 30px;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+        
+        .bullet {
+            position: absolute;
+            font-size: 20px;
+            transform: translateX(-50%);
+            z-index: 5;
+        }
+        
+        .segment {
+            position: absolute;
+            font-size: 30px;
+            transform: translateX(-50%);
+            z-index: 5;
+        }
+        
+        .mushroom {
+            position: absolute;
+            font-size: 24px;
+            transform: translateX(-50%);
+            z-index: 3;
+        }
+        
+        .fog {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 20;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #start-btn {
+            padding: 10px 20px;
+            font-size: 20px;
+            background-color: #0f0;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        #start-btn:hover {
+            background-color: #0c0;
+            transform: scale(1.05);
+        }
+        
+        #game-over {
+            font-size: 40px;
+            color: #f00;
+            text-shadow: 0 0 10px #f00;
+        }
+        
+        #final-score {
+            font-size: 30px;
+            color: #0f0;
+            margin-top: 20px;
+        }
+        
+        .explosion {
+            position: absolute;
+            font-size: 40px;
+            transform: translateX(-50%);
+            z-index: 15;
+            animation: explode 0.5s forwards;
+        }
+        
+        @keyframes explode {
+            0% { transform: translateX(-50%) scale(0.5); opacity: 1; }
+            100% { transform: translateX(-50%) scale(2); opacity: 0; }
+        }
+        
+        .power-up {
+            position: absolute;
+            font-size: 24px;
+            transform: translateX(-50%);
+            z-index: 4;
+            animation: pulse 1s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            0% { transform: translateX(-50%) scale(1); }
+            100% { transform: translateX(-50%) scale(1.2); }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="game-board"></div>
+        <div id="info-panel">
+            <div id="score">Счет: 0</div>
+            <button id="start-btn">Старт 🎮</button>
+            <div id="lives">Жизни: ❤️❤️❤️</div>
+        </div>
+    </div>
+
+    <script>
+        // Константы игры
+        const BOARD_WIDTH = 600;
+        const BOARD_HEIGHT = 600;
+        const PLAYER_SPEED = 5;
+        const BULLET_SPEED = 7;
+        const SEGMENT_SPEED = 2;
+        const MUSHROOM_COUNT = 40;
+        const SEGMENT_COUNT = 10;
+        
+        // Элементы игры
+        let gameBoard = document.getElementById('game-board');
+        let scoreDisplay = document.getElementById('score');
+        let livesDisplay = document.getElementById('lives');
+        let startBtn = document.getElementById('start-btn');
+        
+        // Состояние игры
+        let gameRunning = false;
+        let score = 0;
+        let lives = 3;
+        let player = null;
+        let bullets = [];
+        let centipede = [];
+        let mushrooms = [];
+        let fog = null;
+        let powerUps = [];
+        let keys = {};
+        let gameLoop = null;
+        let powerUpActive = false;
+        let powerUpTimer = null;
+        
+        // Создание игрока
+        function createPlayer() {
+            player = document.createElement('div');
+            player.className = 'player';
+            player.textContent = '👾';
+            player.style.left = BOARD_WIDTH / 2 + 'px';
+            player.style.bottom = '20px';
+            gameBoard.appendChild(player);
+        }
+        
+        // Создание мухоморов
+        function createMushrooms() {
+            for (let i = 0; i < MUSHROOM_COUNT; i++) {
+                let mushroom = document.createElement('div');
+                mushroom.className = 'mushroom';
+                mushroom.textContent = '🍄';
+                
+                // Распределение по сетке
+                let gridX = i % 10;
+                let gridY = Math.floor(i / 10);
+                
+                // Добавляем немного случайности
+                let randomOffsetX = Math.random() * 40 - 20;
+                let randomOffsetY = Math.random() * 40 - 20;
+                
+                let x = gridX * (BOARD_WIDTH / 10) + randomOffsetX;
+                let y = gridY * (BOARD_HEIGHT / 6) + randomOffsetY;
+                
+                mushroom.style.left = x + 'px';
+                mushroom.style.top = y + 'px';
+                
+                // Состояние мухомора (0 - целый, 1 - раненый, 2 - разрушенный)
+                mushroom.state = 0;
+                
+                gameBoard.appendChild(mushroom);
+                mushrooms.push(mushroom);
+            }
+        }
+        
+        // Создание центипеды
+        function createCentipede() {
+            for (let i = 0; i < SEGMENT_COUNT; i++) {
+                let segment = document.createElement('div');
+                segment.className = 'segment';
+                segment.textContent = '🦂';
+                
+                segment.style.left = BOARD_WIDTH / 2 + 'px';
+                segment.style.top = (50 + i * 40) + 'px';
+                
+                // Направление движения (1 - вправо, -1 - влево)
+                segment.direction = 1;
+                
+                gameBoard.appendChild(segment);
+                centipede.push(segment);
+            }
+        }
+        
+        // Создание пули
+        function createBullet() {
+            let bullet = document.createElement('div');
+            bullet.className = 'bullet';
+            bullet.textContent = '🔥';
+            
+            let playerX = parseInt(player.style.left);
+            bullet.style.left = playerX + 'px';
+            bullet.style.bottom = '70px';
+            
+            gameBoard.appendChild(bullet);
+            bullets.push(bullet);
+        }
+        
+        // Создание взрыва
+        function createExplosion(x, y) {
+            let explosion = document.createElement('div');
+            explosion.className = 'explosion';
+            explosion.textContent = '💥';
+            explosion.style.left = x + 'px';
+            explosion.style.top = y + 'px';
+            
+            gameBoard.appendChild(explosion);
+            
+            // Удаление взрыва после анимации
+            setTimeout(() => {
+                if (explosion.parentNode) {
+                    explosion.parentNode.removeChild(explosion);
+                }
+            }, 500);
+        }
+        
+        // Создание power-up
+        function createPowerUp(x, y) {
+            if (Math.random() < 0.3) { // 30% шанс выпадения
+                let powerUp = document.createElement('div');
+                powerUp.className = 'power-up';
+                powerUp.textContent = '⚡';
+                powerUp.style.left = x + 'px';
+                powerUp.style.top = y + 'px';
+                
+                gameBoard.appendChild(powerUp);
+                powerUps.push(powerUp);
+            }
+        }
+        
+        // Активация power-up
+        function activatePowerUp() {
+            powerUpActive = true;
+            player.textContent = '🤖';
+            
+            // Очистка предыдущего таймера, если он есть
+            if (powerUpTimer) {
+                clearTimeout(powerUpTimer);
+            }
+            
+            // Установка нового таймера
+            powerUpTimer = setTimeout(() => {
+                powerUpActive = false;
+                player.textContent = '👾';
+            }, 10000); // 10 секунд
+        }
+        
+        // Обновление позиции игрока
+        function updatePlayer() {
+            let playerX = parseInt(player.style.left);
+            
+            if (keys['ArrowLeft'] && playerX > 20) {
+                playerX -= PLAYER_SPEED;
+            }
+            
+            if (keys['ArrowRight'] && playerX < BOARD_WIDTH - 20) {
+                playerX += PLAYER_SPEED;
+            }
+            
+            player.style.left = playerX + 'px';
+        }
+        
+        // Обновление пуль
+        function updateBullets() {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let bullet = bullets[i];
+                let bulletY = parseInt(bullet.style.bottom) || 0;
+                
+                // Движение пули вверх
+                bulletY += BULLET_SPEED;
+                bullet.style.bottom = bulletY + 'px';
+                
+                // Проверка выхода за границы
+                if (bulletY > BOARD_HEIGHT) {
+                    gameBoard.removeChild(bullet);
+                    bullets.splice(i, 1);
+                    continue;
+                }
+                
+                // Проверка столкновений с мухоморами
+                let bulletX = parseInt(bullet.style.left);
+                let bulletTop = BOARD_HEIGHT - bulletY;
+                
+                for (let j = 0; j < mushrooms.length; j++) {
+                    let mushroom = mushrooms[j];
+                    if (mushroom.state === 2) continue;
+                    
+                    let mushroomX = parseInt(mushroom.style.left);
+                    let mushroomY = parseInt(mushroom.style.top);
+                    
+                    // Простая проверка столкновения
+                    if (Math.abs(bulletX - mushroomX) < 20 && 
+                        Math.abs(bulletTop - mushroomY) < 20) {
+                        
+                        // Уничтожение пули
+                        gameBoard.removeChild(bullet);
+                        bullets.splice(i, 1);
+                        
+                        // Повреждение мухомора
+                        mushroom.state++;
+                        if (mushroom.state === 1) {
+                            mushroom.textContent = '🌹';
+                        } else if (mushroom.state === 2) {
+                            mushroom.textContent = '🌱';
+                        }
+                        
+                        // Увеличение счета
+                        score += 10;
+                        scoreDisplay.textContent = 'Счет: ' + score;
+                        
+                        // Шанс выпадения power-up
+                        createPowerUp(mushroomX, mushroomY);
+                        
+                        break;
+                    }
+                }
+                
+                // Проверка столкновений с сегментами центипеды
+                if (bullets[i]) { // Проверяем, что пуля еще существует
+                    for (let j = 0; j < centipede.length; j++) {
+                        let segment = centipede[j];
+                        let segmentX = parseInt(segment.style.left);
+                        let segmentY = parseInt(segment.style.top);
+                        
+                        // Простая проверка столкновения
+                        if (Math.abs(bulletX - segmentX) < 20 && 
+                            Math.abs(bulletTop - segmentY) < 20) {
+                            
+                            // Уничтожение пули
+                            gameBoard.removeChild(bullet);
+                            bullets.splice(i, 1);
+                            
+                            // Уничтожение сегмента
+                            createExplosion(segmentX, segmentY);
+                            gameBoard.removeChild(segment);
+                            centipede.splice(j, 1);
+                            
+                            // Увеличение счета
+                            score += 100;
+                            scoreDisplay.textContent = 'Счет: ' + score;
+                            
+                            // Если центипеда полностью уничтожена, создаем новую
+                            if (centipede.length === 0) {
+                                createCentipede();
+                            }
+                            
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Обновление центипеды
+        function updateCentipede() {
+            for (let i = 0; i < centipede.length; i++) {
+                let segment = centipede[i];
+                let segmentX = parseInt(segment.style.left);
+                let segmentY = parseInt(segment.style.top);
+                
+                // Движение сегмента в зависимости от направления
+                segmentX += segment.direction * SEGMENT_SPEED;
+                
+                // Проверка столкновения с границами
+                if (segmentX <= 20 || segmentX >= BOARD_WIDTH - 20) {
+                    segment.direction *= -1; // Смена направления
+                    segmentY += 40; // Движение вниз
+                }
+                
+                // Проверка столкновения с мухоморами
+                for (let j = 0; j < mushrooms.length; j++) {
+                    let mushroom = mushrooms[j];
+                    if (mushroom.state === 2) continue;
+                    
+                    let mushroomX = parseInt(mushroom.style.left);
+                    let mushroomY = parseInt(mushroom.style.top);
+                    
+                    // Если сегмент находится над мухомором
+                    if (Math.abs(segmentX - mushroomX) < 20 && 
+                        segmentY + 20 >= mushroomY && 
+                        segmentY <= mushroomY) {
+                        
+                        segment.direction *= -1; // Смена направления
+                        segmentY += 40; // Движение вниз
+                        break;
+                    }
+                }
+                
+                // Обновление позиции сегмента
+                segment.style.left = segmentX + 'px';
+                segment.style.top = segmentY + 'px';
+                
+                // Проверка столкновения с игроком
+                let playerX = parseInt(player.style.left);
+                let playerY = BOARD_HEIGHT - 50; // Примерная позиция игрока
+                
+                if (Math.abs(segmentX - playerX) < 30 && 
+                    Math.abs(segmentY - playerY) < 30) {
+                    
+                    if (!powerUpActive) {
+                        loseLife();
+                    } else {
+                        // Уничтожение сегмента при столкновении с игроком во время power-up
+                        createExplosion(segmentX, segmentY);
+                        gameBoard.removeChild(segment);
+                        centipede.splice(i, 1);
+                        
+                        // Увеличение счета
+                        score += 100;
+                        scoreDisplay.textContent = 'Счет: ' + score;
+                        
+                        // Если центипеда полностью уничтожена, создаем новую
+                        if (centipede.length === 0) {
+                            createCentipede();
+                        }
+                    }
+                }
+                
+                // Проверка выхода за нижнюю границу
+                if (segmentY > BOARD_HEIGHT) {
+                    segmentY = 0;
+                    segmentX = Math.random() * BOARD_WIDTH;
+                }
+            }
+        }
+        
+        // Обновление power-ups
+        function updatePowerUps() {
+            for (let i = powerUps.length - 1; i >= 0; i--) {
+                let powerUp = powerUps[i];
+                let powerUpY = parseInt(powerUp.style.top);
+                
+                // Движение power-up вниз
+                powerUpY += 1;
+                powerUp.style.top = powerUpY + 'px';
+                
+                // Проверка выхода за границы
+                if (powerUpY > BOARD_HEIGHT) {
+                    gameBoard.removeChild(powerUp);
+                    powerUps.splice(i, 1);
+                    continue;
+                }
+                
+                // Проверка столкновения с игроком
+                let powerUpX = parseInt(powerUp.style.left);
+                let playerX = parseInt(player.style.left);
+                
+                if (Math.abs(powerUpX - playerX) < 30) {
+                    // Уничтожение power-up
+                    gameBoard.removeChild(powerUp);
+                    powerUps.splice(i, 1);
+                    
+                    // Активация power-up
+                    activatePowerUp();
+                }
+            }
+        }
+        
+        // Потеря жизни
+        function loseLife() {
+            lives--;
+            
+            // Обновление отображения жизней
+            livesDisplay.textContent = 'Жизни: ' + '❤️'.repeat(lives);
+            
+            if (lives <= 0) {
+                gameOver();
+            } else {
+                // Временная пауза и рестарт
+                gameRunning = false;
+                clearInterval(gameLoop);
+                
+                // Создание тумана
+                createFog();
+                
+                setTimeout(() => {
+                    // Удаление тумана
+                    if (fog && fog.parentNode) {
+                        fog.parentNode.removeChild(fog);
+                    }
+                    
+                    // Сборка игры
+                    resetGame();
+                    startGame();
+                }, 2000);
+            }
+        }
+        
+        // Создание тумана (эффект паузы)
+        function createFog() {
+            fog = document.createElement('div');
+            fog.className = 'fog';
+            fog.innerHTML = '<div>❤️</div>';
+            gameBoard.appendChild(fog);
+        }
+        
+        // Завершение игры
+        function gameOver() {
+            gameRunning = false;
+            clearInterval(gameLoop);
+            
+            // Создание тумана
+            createFog();
+            
+            // Отображение сообщения о конце игры
+            fog.innerHTML = `
+                <div id="game-over">Игра окончена</div>
+                <div id="final-score">Финальный счет: ${score}</div>
+            `;
+            
+            // Обновление кнопки
+            startBtn.textContent = 'Еще раз 🔄';
+        }
+        
+        // Сброс игры
+        function resetGame() {
+            // Очистка доски
+            while (gameBoard.firstChild) {
+ gameBoard.removeChild(gameBoard.firstChild);
+            }
+            
+            // Сброс переменных
+            score = 0;
+            scoreDisplay.textContent = 'Счет: 0';
+            lives = 3;
+            livesDisplay.textContent = 'Жизни: ❤️❤️❤️';
+            bullets = [];
+            centipede = [];
+            mushrooms = [];
+            powerUps = [];
+            powerUpActive = false;
+            
+            // Перезапуск игры
+            createPlayer();
+            createMushrooms();
+            createCentipede();
+        }
+        
+        // Запуск игры
+        function startGame() {
+            if (gameRunning) return;
+            
+            gameRunning = true;
+            gameLoop = setInterval(() => {
+                updatePlayer();
+                updateBullets();
+                updateCentipede();
+                updatePowerUps();
+            }, 1000 / 60); // ~60 FPS
+        }
+        
+        // События клавиатуры
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            // Стрельба по пробелу
+            if (e.key === ' ' && gameRunning) {
+                createBullet();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Событие кнопки старт
+        startBtn.addEventListener('click', () => {
+            if (!gameRunning) {
+                resetGame();
+                startGame();
+                startBtn.textContent = 'Пауза ⏸️';
+            } else {
+                gameRunning = false;
+                clearInterval(gameLoop);
+                createFog();
+                fog.innerHTML = '<div>Пауза</div>';
+                startBtn.textContent = 'Продолжить ▶️';
+            }
+        });
+        
+        // Инициализация игры
+        resetGame();
+    </script>
+</body>
+</html>

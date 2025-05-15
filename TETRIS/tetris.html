@@ -44,7 +44,7 @@
         
         .game-board {
             display: grid;
-            grid-template-rows: repeat(20, 30px);
+            grid-template-rows: repeat(25, 30px);
             grid-template-columns: repeat(10, 30px);
             gap: 1px;
             padding: 10px;
@@ -300,7 +300,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Game constants
             const BOARD_WIDTH = 10;
-            const BOARD_HEIGHT = 20;
+            const BOARD_HEIGHT = 25;
             const CELL_SIZE = 30;
             const COLORS = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
             
@@ -628,6 +628,12 @@
                 // Отрисовываем новое состояние
                 drawBoard();
                 drawNextPiece();
+                
+                // Проверяем, можно ли разместить новую фигуру
+                if (!canMove(currentPiece.x, currentPiece.y)) {
+                    gameOver();
+                    return;
+                }
                 
                 // Если игра не закончилась, отрисовываем новую текущую фигуру
                 if (!isGameOver) {
