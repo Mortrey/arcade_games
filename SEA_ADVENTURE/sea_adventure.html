@@ -503,8 +503,38 @@
             const pearl = document.createElement('div');
             pearl.className = 'pearl';
             pearl.textContent = '🦐';
-            pearl.style.left = `${Math.random() * (containerWidth - 30)}px`;
-            pearl.style.top = '-30px';
+            
+            // Случайное появление с разных сторон экрана
+            const side = Math.floor(Math.random() * 4); // 0: верх, 1: право, 2: низ, 3: лево
+            const speed = 2 + Math.random() * 2; // Случайная скорость от 2 до 4
+            
+            switch(side) {
+                case 0: // сверху
+                    pearl.style.left = `${Math.random() * (containerWidth - 30)}px`;
+                    pearl.style.top = '-30px';
+                    pearl.speedX = (Math.random() - 0.5) * 2; // Случайное горизонтальное движение
+                    pearl.speedY = speed;
+                    break;
+                case 1: // справа
+                    pearl.style.left = `${containerWidth}px`;
+                    pearl.style.top = `${Math.random() * (containerHeight - 30)}px`;
+                    pearl.speedX = -speed;
+                    pearl.speedY = (Math.random() - 0.5) * 2;
+                    break;
+                case 2: // снизу
+                    pearl.style.left = `${Math.random() * (containerWidth - 30)}px`;
+                    pearl.style.top = `${containerHeight}px`;
+                    pearl.speedX = (Math.random() - 0.5) * 2;
+                    pearl.speedY = -speed;
+                    break;
+                case 3: // слева
+                    pearl.style.left = '-30px';
+                    pearl.style.top = `${Math.random() * (containerHeight - 30)}px`;
+                    pearl.speedX = speed;
+                    pearl.speedY = (Math.random() - 0.5) * 2;
+                    break;
+            }
+            
             gameContainer.appendChild(pearl);
             pearls.push(pearl);
             
@@ -518,6 +548,55 @@
                     pearl.remove();
                 }
             }, 10000);
+        }
+        
+        // Перемещение креветок
+        function movePearls() {
+            for (let i = pearls.length - 1; i >= 0; i--) {
+                const pearl = pearls[i];
+                let x = parseInt(pearl.style.left);
+                let y = parseInt(pearl.style.top);
+                
+                // Добавляем случайное изменение направления
+                if (Math.random() < 0.02) { // 2% шанс изменения направления
+                    pearl.speedX += (Math.random() - 0.5) * 0.5;
+                    pearl.speedY += (Math.random() - 0.5) * 0.5;
+                    
+                    // Ограничиваем максимальную скорость
+                    pearl.speedX = Math.max(-4, Math.min(4, pearl.speedX));
+                    pearl.speedY = Math.max(-4, Math.min(4, pearl.speedY));
+                }
+                
+                x += pearl.speedX;
+                y += pearl.speedY;
+                
+                // Отражение от границ экрана
+                if (x < 0) {
+                    x = 0;
+                    pearl.speedX = Math.abs(pearl.speedX);
+                } else if (x > containerWidth - 30) {
+                    x = containerWidth - 30;
+                    pearl.speedX = -Math.abs(pearl.speedX);
+                }
+                
+                if (y < 0) {
+                    y = 0;
+                    pearl.speedY = Math.abs(pearl.speedY);
+                } else if (y > containerHeight - 30) {
+                    y = containerHeight - 30;
+                    pearl.speedY = -Math.abs(pearl.speedY);
+                }
+                
+                pearl.style.left = `${x}px`;
+                pearl.style.top = `${y}px`;
+                
+                // Поворот креветки в сторону движения
+                if (pearl.speedX > 0) {
+                    pearl.style.transform = 'scaleX(-1)';
+                } else {
+                    pearl.style.transform = 'scaleX(1)';
+                }
+            }
         }
         
         // Генерация врагов
@@ -738,22 +817,6 @@
             }
         }
         
-        // Перемещение креветок
-        function movePearls() {
-            for (let i = pearls.length - 1; i >= 0; i--) {
-                const pearl = pearls[i];
-                let y = parseInt(pearl.style.top);
-                y += 2;
-                pearl.style.top = `${y}px`;
-                
-                // Удаление креветки, если она ушла за экран
-                if (y > containerHeight) {
-                    pearl.remove();
-                    pearls.splice(i, 1);
-                }
-            }
-        }
-        
         // Перемещение врагов
         function moveEnemies() {
             for (let i = enemies.length - 1; i >= 0; i--) {
@@ -855,29 +918,39 @@
                 const crabRect = crab.getBoundingClientRect();
                 
                 if (isColliding(playerRect, crabRect)) {
-                    // Столкновение с крабом
-                    lives--;
-                    livesDisplay.textContent = `Жизни: ${lives} ❤️`;
-                    
-                    // Деактивируем краба на 3 секунды
-                    crab.isActive = false;
-                    crab.style.opacity = '0.5';
-                    
-                    // Эффект удара
-                    player.style.transform = 'rotate(180deg) scale(0.8)';
-                    setTimeout(() => {
-                        player.style.transform = '';
-                    }, 300);
-                    
-                    // Активируем краба через 3 секунды
-                    setTimeout(() => {
-                        crab.isActive = true;
-                        crab.style.opacity = '1';
-                    }, 3000);
-                    
-                    // Проверка на конец игры
-                    if (lives <= 0) {
-                        gameOver();
+                    if (!hasShield) {
+                        // Столкновение с крабом
+                        lives--;
+                        livesDisplay.textContent = `Жизни: ${lives} ❤️`;
+                        
+                        // Деактивируем краба на 3 секунды
+                        crab.isActive = false;
+                        crab.style.opacity = '0.5';
+                        
+                        // Эффект удара
+                        player.style.transform = 'rotate(180deg) scale(0.8)';
+                        setTimeout(() => {
+                            player.style.transform = '';
+                        }, 300);
+                        
+                        // Активируем краба через 3 секунды
+                        setTimeout(() => {
+                            crab.isActive = true;
+                            crab.style.opacity = '1';
+                        }, 3000);
+                        
+                        // Проверка на конец игры
+                        if (lives <= 0) {
+                            gameOver();
+                        }
+                    } else {
+                        // Если есть щит, просто деактивируем краба
+                        crab.isActive = false;
+                        crab.style.opacity = '0.5';
+                        setTimeout(() => {
+                            crab.isActive = true;
+                            crab.style.opacity = '1';
+                        }, 3000);
                     }
                 }
             }
@@ -888,23 +961,29 @@
                 const enemyRect = enemy.getBoundingClientRect();
                 
                 if (isColliding(playerRect, enemyRect)) {
-                    // Столкновение с врагом
-                    lives--;
-                    livesDisplay.textContent = `Жизни: ${lives} ❤️`;
-                    
-                    // Удаление врага
-                    enemy.remove();
-                    enemies.splice(i, 1);
-                    
-                    // Эффект удара
-                    player.style.transform = 'rotate(180deg) scale(0.8)';
-                    setTimeout(() => {
-                        player.style.transform = '';
-                    }, 300);
-                    
-                    // Проверка на конец игры
-                    if (lives <= 0) {
-                        gameOver();
+                    if (!hasShield) {
+                        // Столкновение с врагом
+                        lives--;
+                        livesDisplay.textContent = `Жизни: ${lives} ❤️`;
+                        
+                        // Удаление врага
+                        enemy.remove();
+                        enemies.splice(i, 1);
+                        
+                        // Эффект удара
+                        player.style.transform = 'rotate(180deg) scale(0.8)';
+                        setTimeout(() => {
+                            player.style.transform = '';
+                        }, 300);
+                        
+                        // Проверка на конец игры
+                        if (lives <= 0) {
+                            gameOver();
+                        }
+                    } else {
+                        // Если есть щит, просто удаляем врага
+                        enemy.remove();
+                        enemies.splice(i, 1);
                     }
                 }
             }
@@ -915,23 +994,29 @@
                 const sharkRect = shark.getBoundingClientRect();
                 
                 if (isColliding(playerRect, sharkRect)) {
-                    // Столкновение с акулой
-                    lives--;
-                    livesDisplay.textContent = `Жизни: ${lives} ❤️`;
-                    
-                    // Удаление акулы
-                    shark.remove();
-                    sharks.splice(i, 1);
-                    
-                    // Эффект удара
-                    player.style.transform = 'rotate(180deg) scale(0.8)';
-                    setTimeout(() => {
-                        player.style.transform = '';
-                    }, 300);
-                    
-                    // Проверка на конец игры
-                    if (lives <= 0) {
-                        gameOver();
+                    if (!hasShield) {
+                        // Столкновение с акулой
+                        lives--;
+                        livesDisplay.textContent = `Жизни: ${lives} ❤️`;
+                        
+                        // Удаление акулы
+                        shark.remove();
+                        sharks.splice(i, 1);
+                        
+                        // Эффект удара
+                        player.style.transform = 'rotate(180deg) scale(0.8)';
+                        setTimeout(() => {
+                            player.style.transform = '';
+                        }, 300);
+                        
+                        // Проверка на конец игры
+                        if (lives <= 0) {
+                            gameOver();
+                        }
+                    } else {
+                        // Если есть щит, просто удаляем акулу
+                        shark.remove();
+                        sharks.splice(i, 1);
                     }
                 }
             }

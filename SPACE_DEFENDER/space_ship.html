@@ -396,10 +396,20 @@
                 enemy.className = 'enemy';
                 const ufos = ['images/ufo1.jpg', 'images/ufo2.jpg', 'images/ufo3.jpg'];
                 enemy.style.backgroundImage = `url('${ufos[Math.floor(Math.random() * ufos.length)]}')`;
-                // Распределяем врагов по ширине экрана
+                
+                // Разделяем экран на секции для равномерного распределения
                 const section = gameContainer.offsetWidth / enemyCount;
-                const randomOffset = Math.random() * (section - 40);
-                enemy.style.left = (section * i + randomOffset) + 'px';
+                // Учитываем ширину НЛО (64px) при расчете случайного смещения
+                const maxOffset = section - 64;
+                const randomOffset = Math.random() * maxOffset;
+                
+                // Позиционируем НЛО так, чтобы оно полностью помещалось в свою секцию
+                const leftPosition = Math.min(
+                    Math.max(section * i + randomOffset, 0),
+                    gameContainer.offsetWidth - 64
+                );
+                
+                enemy.style.left = leftPosition + 'px';
                 enemy.style.top = '0px';
                 gameContainer.appendChild(enemy);
             }
