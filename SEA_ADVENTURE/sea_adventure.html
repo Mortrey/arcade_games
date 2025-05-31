@@ -63,12 +63,12 @@
         
         .enemy {
             position: absolute;
-            font-size: 35px;
+            font-size: 70px;
         }
         
         .shark {
             position: absolute;
-            font-size: 35px;
+            font-size: 70px;
         }
         
         .sea-bottom {
@@ -241,13 +241,14 @@
         }
 
         .player-speed {
-            animation: speed 0.5s infinite;
+            filter: brightness(1.5) hue-rotate(90deg);
+            text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
         }
 
         @keyframes speed {
-            0% { filter: brightness(1); }
-            50% { filter: brightness(1.2); }
-            100% { filter: brightness(1); }
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
         }
         
         @keyframes float {
@@ -347,11 +348,33 @@
         const containerHeight = gameContainer.offsetHeight;
         
         // Звуковые эффекты
+        function createSound(frequency, type, duration) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
         const sounds = {
-            collect: new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU...'),
-            hit: new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU...'),
-            bonus: new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU...'),
-            levelUp: new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU...')
+            collect: () => createSound(800, 'sine', 0.1), // Звук сбора креветки
+            hit: () => createSound(200, 'sawtooth', 0.3), // Звук столкновения
+            bonus: () => createSound(1200, 'sine', 0.2), // Звук получения бонуса
+            levelUp: () => {
+                createSound(600, 'sine', 0.1);
+                setTimeout(() => createSound(800, 'sine', 0.1), 100);
+                setTimeout(() => createSound(1000, 'sine', 0.1), 200);
+            }
         };
         
         // Обработчики событий
@@ -811,7 +834,7 @@
             
             // Поворот рыбки в сторону последнего движения
             if (isSpeedBoosted) {
-                player.style.transform = playerDirection === 1 ? 'scaleX(-1) scale(1.1)' : 'scaleX(1) scale(1.1)';
+                player.style.transform = playerDirection === 1 ? 'scaleX(-1)' : 'scaleX(1)';
             } else {
                 player.style.transform = playerDirection === 1 ? 'scaleX(-1)' : 'scaleX(1)';
             }
@@ -892,6 +915,7 @@
                     // Собираем креветку
                     score++;
                     scoreDisplay.textContent = `Креветки: ${score} 🦐`;
+                    sounds.collect(); // Воспроизводим звук сбора
                     
                     // Удаление креветки
                     pearl.remove();
@@ -922,6 +946,7 @@
                         // Столкновение с крабом
                         lives--;
                         livesDisplay.textContent = `Жизни: ${lives} ❤️`;
+                        sounds.hit(); // Воспроизводим звук столкновения
                         
                         // Деактивируем краба на 3 секунды
                         crab.isActive = false;
@@ -965,6 +990,7 @@
                         // Столкновение с врагом
                         lives--;
                         livesDisplay.textContent = `Жизни: ${lives} ❤️`;
+                        sounds.hit(); // Воспроизводим звук столкновения
                         
                         // Удаление врага
                         enemy.remove();
@@ -998,6 +1024,7 @@
                         // Столкновение с акулой
                         lives--;
                         livesDisplay.textContent = `Жизни: ${lives} ❤️`;
+                        sounds.hit(); // Воспроизводим звук столкновения
                         
                         // Удаление акулы
                         shark.remove();
@@ -1029,7 +1056,7 @@
                 if (isColliding(playerRect, bonusRect)) {
                     // Активация бонуса
                     activateBonus(bonus.type, bonus.duration);
-                    sounds.bonus.play();
+                    sounds.bonus(); // Воспроизводим звук бонуса
                     
                     // Удаление бонуса
                     bonus.remove();
@@ -1043,6 +1070,7 @@
             level++;
             levelDisplay.textContent = `Уровень: ${level}`;
             showNotification(`Уровень ${level}!`);
+            sounds.levelUp(); // Воспроизводим звук повышения уровня
             
             // Увеличение сложности
             clearInterval(pearlGenerationInterval);
@@ -1116,22 +1144,27 @@
                 case 'shield':
                     hasShield = true;
                     player.classList.add('player-shield');
+                    showNotification('🛡️ Защита активирована!');
                     setTimeout(() => {
                         hasShield = false;
                         player.classList.remove('player-shield');
+                        showNotification('Защита закончилась');
                     }, duration);
                     break;
                 case 'speed':
                     isSpeedBoosted = true;
                     player.classList.add('player-speed');
+                    showNotification('⚡ Ускорение активировано!');
                     setTimeout(() => {
                         isSpeedBoosted = false;
                         player.classList.remove('player-speed');
+                        showNotification('Ускорение закончилось');
                     }, duration);
                     break;
                 case 'life':
                     lives = Math.min(lives + 1, 5);
                     livesDisplay.textContent = `Жизни: ${lives} ❤️`;
+                    showNotification('❤️ +1 жизнь!');
                     break;
             }
         }
